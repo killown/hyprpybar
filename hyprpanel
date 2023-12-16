@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+import os
+os.environ["GI_TYPELIB_PATH"] = "/usr/include/hyprpanel/src"
+
+from ctypes import CDLL
+CDLL('libgtk4-layer-shell.so')
+from subprocess import Popen
+
+import gi
+gi.require_version("Gtk", "4.0")
+gi.require_version('Gtk4LayerShell', '1.0')
+
+from gi.repository import Gtk
+from gi.repository import Gtk4LayerShell as LayerShell
+import asyncio
+from gi.repository import Gtk, Adw, GLib, Gio, Gdk
+from datetime import datetime
+import shlex
+
+
+home = os.path.expanduser('~') 
+config_path = os.path.join(home, ".config/hyprpanel")
+app_list_config = os.path.join(config_path, "app.list")
+workspace_list_config = os.path.join(config_path, "workspace.list")
+
+async def run(cmd):
+    proc = await asyncio.create_subprocess_shell(
+        cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE)
+
+    stdout, stderr = await proc.communicate()
+
+    print(f'[{cmd!r} exited with {proc.returncode}]')
+    if stdout:
+        print(f'[stdout]\n{stdout.decode()}')
+    if stderr:
+        print(f'[stderr]\n{stderr.decode()}')
+
+
+
+def CreateButton(icon, app):
+    box = Gtk.Box(spacing=0)
+    icon = Gtk.Image(icon_name=icon)
+    box.append(icon)
+    Gtk.StyleContext.add_class(box.get_style_context(), "LeftBar")
+    button = Gtk.Button(child=box)
+    if type(app) == str:
+        cmd = shlex.split(app)
+        button.connect('clicked', lambda x: Popen(cmd, start_new_session=True))
+    else:
+        button.connect('clicked', lambda x: app.popup())
+        
+    return button
+
+def CreatFromAppList(orientation, app_list):
+    box = Gtk.Box(spacing=0, orientation=orientation)
+    Gtk.StyleContext.add_class(box.get_style_context(), "LeftBar")
+    with(open(app_list) as applist):
+          for i in applist:
+              if not ":" in i:
+                  continue
+              app = i.split(":")[0].strip()
+              icon = i.split(":")[1].strip()
+              button = CreateButton(icon, app)
+              box.append(button)
+    return box
+
+def CreateMenu(MenuItems, icon):   
+        menu = Gio.Menu.new()
+        for MenuItem in MenuItems:
+            menu.append_item(Gio.MenuItem.new(label=MenuItem, detailed_action=MenuItems[MenuItem]))
+        popup = Gtk.PopoverMenu.new_from_model(menu)
+        box = Gtk.Box()    
+        button = CreateButton(icon, popup)
+        popup.set_parent(button)
+        box.append(button)
+        return box
+
+def CreatePanel(app, anchor, layer, exclusive, width, height):
+    window = Gtk.Window(application=app)
+    window.set_default_size(width, height)
+    Gtk.StyleContext.add_class(window.get_style_context(), anchor + "PANEL")
+    LayerShell.init_for_window(window)
+    if(anchor == "LEFT"):
+        LayerShell.set_anchor(window, LayerShell.Edge.LEFT, True)
+    if(anchor == "RIGHT"):
+        LayerShell.set_anchor(window, LayerShell.Edge.RIGHT, True)
+    if(anchor == "TOP"):
+        LayerShell.set_anchor(window, LayerShell.Edge.TOP, True)
+    if(anchor == "BOTTOM"):
+        LayerShell.set_anchor(window, LayerShell.Edge.BOTTOM, True)
+    LayerShell.set_margin(window, LayerShell.Edge.BOTTOM, 0)
+    LayerShell.set_margin(window, LayerShell.Edge.TOP, 0)
+    if(layer == "BOTTOM"):
+        LayerShell.set_layer (window, LayerShell.Layer.BOTTOM);
+    if(layer == "TOP"):
+        LayerShell.set_layer (window, LayerShell.Layer.TOP);
+    if(exclusive == True):
+        LayerShell.auto_exclusive_zone_enable(window)
+    return window
+
+class MyApp(Adw.Application):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.connect('activate', self.on_activate)
+
+    def on_activate(self, app):
+        left_panel = CreatePanel(app, "LEFT", "TOP", True, 32, 0)
+        bottom_panel = CreatePanel(app, "BOTTOM", "BOTTOM", False, 0, 32)
+        Gtk.StyleContext.add_class(left_panel.get_style_context(), "LEFTPANEL")
+        top_panel = CreatePanel(app, "TOP", "", True, 0, 32)
+        app_list = CreatFromAppList("vertical", app_list_config)
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_file(Gio.File.new_for_path('/home/neo/.config/hyprpanel/style.css'))
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        menu_dict = {"Firefox":"firefox"}
+        app_list.append(CreateMenu(menu_dict, "classicmenu-indicator-light-symbolic"))
+        left_panel.set_child(app_list)
+        left_panel.present()
+        
+        #bottom panel
+        bottom_panel.set_child(CreatFromAppList("horizontal", workspace_list_config))
+        bottom_panel.present()
+    
+        #clock widget
+        self.clock_label = Gtk.Label()
+        self.clock_label.set_markup(datetime.now().strftime('<big>%H:%M:%S</big>'))
+        clock_box = Gtk.Box(spacing=0)  
+        clock_box.append(self.clock_label)
+        GLib.timeout_add(1000, self.update_clock)
+    
+        top_panel.set_child(clock_box)
+        #top_panel.present()
+        
+    def update_clock(self):
+        self.clock_label.set_markup(datetime.now().strftime('<big>%H:%M:%S</big>'))
+        return True   
+    
+app = MyApp(application_id="com.example.GtkApplication")
+app.run(None)
