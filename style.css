@@ -1,19 +1,28 @@
 .LeftBar {
-  -gtk-icon-size: 32px;
+  -gtk-icon-size: 24px;
   background-color: #14151700;
 }
 
+.RightBar {
+  -gtk-icon-size: 28px;
+  background: rgba(90, 90, 90, 0.8);
+}
 
 .Clock {
   font-size: 18px;
   background-color: #141517;
 }
 
-.BoxTopBar {}
+.TopBar {
+  font-size: 18px;
+  color: #ffffff;
+  background-color: #14151707;
+}
 
-
-.BOTTOMPANEL {
-  background: rgba(0, 0, 0, 0.829);
+.BottomBar {
+  -gtk-icon-size: 48px;
+  background-color: #14151731;
+  background: #14151731;
 }
 
 .launcher:hover {
@@ -40,20 +49,4 @@
     rgba(16, 16, 16, 0.4) 1px 50px 95px,
     white -0.15em -0.1em 100px;
 
-}
-
-.LEFTPANEL {
-  background: #000000cb;
-  background-color: #000000cb;
-}
-
-.LEFTPANEL:hover {
-  background: #e69a7bcb;
-  background-color: #000000cb;
-}
-
-.box {
-  background: #141517a6;
-  ;
-  background-color: #141517a6;
 }
