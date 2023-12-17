@@ -16,10 +16,14 @@ import asyncio
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk
 from datetime import datetime
 import json
+import sys 
+
+args = sys.argv
 
 home = os.path.expanduser('~') 
 config_path = os.path.join(home, ".config/hyprpanel")
 app_list_config = os.path.join(config_path, "app.list")
+style_css_config = os.path.join(config_path, "style.css")
 workspace_list_config = os.path.join(config_path, "workspace.list")
 menu_config = os.path.join(config_path, "menu.cfg")
 
@@ -33,12 +37,13 @@ def run(app):
     else:
         Popen(app.split(), start_new_session=True)
 
-def CreateButton(icon, app):
+def CreateButton(icon, app, Class_Style):
     box = Gtk.Box(spacing=0)
     icon = Gtk.Image(icon_name=icon)
     box.append(icon)
-    Gtk.StyleContext.add_class(box.get_style_context(), "LeftBar")
+    Gtk.StyleContext.add_class(box.get_style_context(), Class_Style)
     button = Gtk.Button(child=box)
+    Gtk.StyleContext.add_class(button.get_style_context(), Class_Style + "Button")
     if type(app) == str:
         button.connect('clicked', lambda x: run(app))
     else:
@@ -46,27 +51,22 @@ def CreateButton(icon, app):
         
     return button
 
-def CreatFromAppList(orientation, app_list):
+def CreatFromAppList(orientation, app_list, class_style):
     box = Gtk.Box(spacing=0, orientation=orientation)
-    Gtk.StyleContext.add_class(box.get_style_context(), "LeftBar")
     with(open(app_list) as applist):
           for i in reversed(applist.readlines()):
               if not ":" in i:
                   continue
               app = i.split(":")[0].strip()
               icon = i.split(":")[1].strip()
-              button = CreateButton(icon, app)
+              button = CreateButton(icon, app, class_style)
               box.append(button)
     return box
 
-
-
-
-
-def CreatePanel(app, anchor, layer, exclusive, width, height):
+def CreatePanel(app, anchor, layer, exclusive, width, height, class_style):
     window = Gtk.Window(application=app)
     window.set_default_size(width, height)
-    Gtk.StyleContext.add_class(window.get_style_context(), anchor + "PANEL")
+    Gtk.StyleContext.add_class(window.get_style_context(), class_style)
     LayerShell.init_for_window(window)
     if(anchor == "LEFT"):
         LayerShell.set_anchor(window, LayerShell.Edge.LEFT, True)
@@ -92,23 +92,31 @@ class Panel(Adw.Application):
         self.connect('activate', self.on_activate)
 
     def on_activate(self, app):
-        left_panel = CreatePanel(app, "BOTTOM", "BOTTOM", False, 32, 0)
-        right_panel = CreatePanel(app, "RIGHT", "BOTTOM", False, 0, 32)
-        top_panel = CreatePanel(app, "TOP", "BOTTOM", False, 0, 48)
-        Gtk.StyleContext.add_class(top_panel.get_style_context(), "TOPBAR")
-        Gtk.StyleContext.add_class(left_panel.get_style_context(), "LEFTPANEL")
-        app_list = CreatFromAppList("horizontal", app_list_config)
-        css_provider = Gtk.CssProvider()
-        css_provider.load_from_file(Gio.File.new_for_path('/home/neo/.config/hyprpanel/style.css'))
-        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-        menu_dict = {"Firefox":"firefox"}
-        #app_list.append(self.CreateMenu())
-        left_panel.set_child(app_list)
-        left_panel.present()
+        panel_on_top = "TOP"
+        exclusive = True
+        all_panels_enabled = True
+        default_panel = True
         
-        #right panel
-        right_panel.set_child(CreatFromAppList("vertical", workspace_list_config))
-        right_panel.present()
+        print(args)
+        
+        if "--custom" in args:
+            default_panel = False
+        
+        if "--background" in args:
+            panel_on_top = "BOTTOM"
+            exclusive = False
+               
+        bottom_panel = CreatePanel(app, "BOTTOM", panel_on_top, exclusive, 32, 0, "BottomBar")
+        right_panel = CreatePanel(app, "RIGHT", panel_on_top, exclusive, 0, 32, "RightBar")
+        left_panel = CreatePanel(app, "LEFT", panel_on_top, exclusive, 0, 32, "LeftBar")
+        top_panel = CreatePanel(app, "TOP", panel_on_top, exclusive, 0, 48, "TopBar")
+        
+        #load css
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_file(Gio.File.new_for_path(style_css_config))
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        
+        #app_list.append(self.CreateMenu())
     
         #clock widget
         #self.clock_label = Gtk.Label()
@@ -125,12 +133,73 @@ class Panel(Adw.Application):
         self.todo_label.set_markup("  Last todo.txt Note: " + txt + "   ")
         GLib.timeout_add(600000, self.todo_txt)
         todo_label_box.append(self.todo_label)
-        top_panel.set_child(todo_label_box)
-        #top_panel.set_child(clock_box)
-        top_panel.present()
-
-
         
+        if default_panel:
+            app_list = CreatFromAppList("horizontal", app_list_config, "BottomBar")
+            workspace_buttons = CreatFromAppList("vertical", workspace_list_config, "RightBar")
+            bottom_panel.set_child(app_list)
+            top_panel.set_child(todo_label_box)
+            right_panel.set_child(workspace_buttons) 
+            
+        
+        if [i for i in args if "topbar" in i]:  
+            app_list, workspace_buttons = self.create_widgets("horizontal", "TopBar")         
+            all_panels_enabled = False
+            top_panel.present()
+        if "--topbar-apps" in args:
+                top_panel.set_child(app_list)
+        if "--topbar-workspaces" in args:
+                top_panel.set_child(workspace_buttons)
+        if "--topbar-todo" in args:
+                top_panel.set_child(todo_label_box)
+
+            
+        if [i for i in args if "rightbar" in i]:  
+            app_list, workspace_buttons = self.create_widgets("vertical", "RightBar")         
+            all_panels_enabled = False
+            right_panel.present()
+        if "--rightbar-apps" in args:
+            right_panel.set_child(app_list)
+        if "--rightbar-workspaces" in args:
+            right_panel.set_child(workspace_buttons)
+        if "--rightbar-todo" in args:
+            right_panel.set_child(todo_label_box)             
+
+            
+        if [i for i in args if "leftbar" in i]:  
+            app_list, workspace_buttons = self.create_widgets("vertical", "LeftBar")          
+            all_panels_enabled = False
+            left_panel.present()
+        if "--leftbar-apps" in args:
+            left_panel.set_child(app_list)
+        if "--leftbar-workspaces" in args:
+            left_panel.set_child(workspace_buttons)
+        if "--leftbar-todo" in args:
+            left_panel.set_child(todo_label_box)
+            
+        if [i for i in args if "bottombar" in i]:  
+            app_list, workspace_buttons = self.create_widgets("horizontal", "BottomBar")
+            all_panels_enabled = False
+            bottom_panel.present()
+        if "--bottombar-apps" in args:
+            bottom_panel.set_child(app_list)
+        if "--bottombar-workspaces" in args:
+            bottom_panel.set_child(workspace_buttons)
+        if "--bottombar-todo" in args:
+            bottom_panel.set_child(todo_label_box)
+
+            
+        if all_panels_enabled:
+            #top_panel.set_child(clock_box)
+            top_panel.present()
+            right_panel.present()
+            bottom_panel.present()
+     
+    def create_widgets(self, orientation, class_style):
+        app_list = CreatFromAppList(orientation, app_list_config, class_style)
+        workspace_buttons = CreatFromAppList(orientation, workspace_list_config, class_style)
+        return app_list, workspace_buttons    
+            
     def todo_txt(self):
         todo = os.path.join(home, "Documentos", "todo.txt")
         txt = open(todo, "r").readlines()[-1]
@@ -145,7 +214,7 @@ class Panel(Adw.Application):
         menu_json = json.loads(data)
         for m in menu_json:
             popup = Gtk.PopoverMenu.new_from_model(menu)
-            button = CreateButton(m, popup)
+            button = CreateButton(m, popup, "popup")
             popup.set_parent(button)
             box.append(button)
             for item in menu_json[m].values():
