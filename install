@@ -1,0 +1,4 @@
+meson setup build --wipe 
+ninja -C build install
+mkdir ~/.config/hyprpanel
+cp *.list ~/.config/hyprpanel

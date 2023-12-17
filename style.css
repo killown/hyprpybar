@@ -1,0 +1,59 @@
+.LeftBar {
+  -gtk-icon-size: 32px;
+  background-color: #14151700;
+}
+
+
+.Clock {
+  font-size: 18px;
+  background-color: #141517;
+}
+
+.BoxTopBar {}
+
+
+.BOTTOMPANEL {
+  background: rgba(0, 0, 0, 0.829);
+}
+
+.launcher:hover {
+  color: rgb(255, 213, 150);
+  background: rgb(255, 213, 150);
+  margin-right: -4px;
+  text-shadow:
+    white 0.006em 0.006em 0.007em,
+    #9c9c9c 1px 1px 1px,
+    #9c9c9c 1px 2px 1px,
+    #9c9c9c 1px 3px 1px,
+    #9c9c9c 1px 4px 1px,
+    #9c9c9c 1px 5px 1px,
+    #9c9c9c 1px 6px 1px,
+    #9c9c9c 1px 7px 1px,
+    #9c9c9c 1px 8px 1px,
+    #9c9c9c 1px 9px 1px,
+    #9c9c9c 1px 10px 1px,
+    #9c9c9c 1px 11px 1px,
+    #9c9c9c 1px 12px 1px,
+    rgba(16, 16, 16, 0.4) 1px 38px 26px,
+    rgba(16, 16, 16, 0.2) 1px 42px 30px,
+    rgba(16, 16, 16, 0.2) 1px 46px 65px,
+    rgba(16, 16, 16, 0.4) 1px 50px 95px,
+    white -0.15em -0.1em 100px;
+
+}
+
+.LEFTPANEL {
+  background: #000000cb;
+  background-color: #000000cb;
+}
+
+.LEFTPANEL:hover {
+  background: #e69a7bcb;
+  background-color: #000000cb;
+}
+
+.box {
+  background: #141517a6;
+  ;
+  background-color: #141517a6;
+}

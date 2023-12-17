@@ -15,29 +15,23 @@ from gi.repository import Gtk4LayerShell as LayerShell
 import asyncio
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk
 from datetime import datetime
-import shlex
-
+import json
 
 home = os.path.expanduser('~') 
 config_path = os.path.join(home, ".config/hyprpanel")
 app_list_config = os.path.join(config_path, "app.list")
 workspace_list_config = os.path.join(config_path, "workspace.list")
+menu_config = os.path.join(config_path, "menu.cfg")
 
-async def run(cmd):
-    proc = await asyncio.create_subprocess_shell(
-        cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE)
-
-    stdout, stderr = await proc.communicate()
-
-    print(f'[{cmd!r} exited with {proc.returncode}]')
-    if stdout:
-        print(f'[stdout]\n{stdout.decode()}')
-    if stderr:
-        print(f'[stderr]\n{stderr.decode()}')
-
-
+def run(app):
+    if ";" in app:
+        for line in app.split(";"):
+            try:
+                Popen(line.split(), start_new_session=True)
+            except:
+                pass
+    else:
+        Popen(app.split(), start_new_session=True)
 
 def CreateButton(icon, app):
     box = Gtk.Box(spacing=0)
@@ -46,8 +40,7 @@ def CreateButton(icon, app):
     Gtk.StyleContext.add_class(box.get_style_context(), "LeftBar")
     button = Gtk.Button(child=box)
     if type(app) == str:
-        cmd = shlex.split(app)
-        button.connect('clicked', lambda x: Popen(cmd, start_new_session=True))
+        button.connect('clicked', lambda x: run(app))
     else:
         button.connect('clicked', lambda x: app.popup())
         
@@ -57,7 +50,7 @@ def CreatFromAppList(orientation, app_list):
     box = Gtk.Box(spacing=0, orientation=orientation)
     Gtk.StyleContext.add_class(box.get_style_context(), "LeftBar")
     with(open(app_list) as applist):
-          for i in applist:
+          for i in reversed(applist.readlines()):
               if not ":" in i:
                   continue
               app = i.split(":")[0].strip()
@@ -66,16 +59,9 @@ def CreatFromAppList(orientation, app_list):
               box.append(button)
     return box
 
-def CreateMenu(MenuItems, icon):   
-        menu = Gio.Menu.new()
-        for MenuItem in MenuItems:
-            menu.append_item(Gio.MenuItem.new(label=MenuItem, detailed_action=MenuItems[MenuItem]))
-        popup = Gtk.PopoverMenu.new_from_model(menu)
-        box = Gtk.Box()    
-        button = CreateButton(icon, popup)
-        popup.set_parent(button)
-        box.append(button)
-        return box
+
+
+
 
 def CreatePanel(app, anchor, layer, exclusive, width, height):
     window = Gtk.Window(application=app)
@@ -100,42 +86,82 @@ def CreatePanel(app, anchor, layer, exclusive, width, height):
         LayerShell.auto_exclusive_zone_enable(window)
     return window
 
-class MyApp(Adw.Application):
+class Panel(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.connect('activate', self.on_activate)
 
     def on_activate(self, app):
-        left_panel = CreatePanel(app, "LEFT", "TOP", True, 32, 0)
-        bottom_panel = CreatePanel(app, "BOTTOM", "BOTTOM", False, 0, 32)
+        left_panel = CreatePanel(app, "BOTTOM", "BOTTOM", False, 32, 0)
+        right_panel = CreatePanel(app, "RIGHT", "BOTTOM", False, 0, 32)
+        top_panel = CreatePanel(app, "TOP", "BOTTOM", False, 0, 48)
+        Gtk.StyleContext.add_class(top_panel.get_style_context(), "TOPBAR")
         Gtk.StyleContext.add_class(left_panel.get_style_context(), "LEFTPANEL")
-        top_panel = CreatePanel(app, "TOP", "", True, 0, 32)
-        app_list = CreatFromAppList("vertical", app_list_config)
+        app_list = CreatFromAppList("horizontal", app_list_config)
         css_provider = Gtk.CssProvider()
         css_provider.load_from_file(Gio.File.new_for_path('/home/neo/.config/hyprpanel/style.css'))
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         menu_dict = {"Firefox":"firefox"}
-        app_list.append(CreateMenu(menu_dict, "classicmenu-indicator-light-symbolic"))
+        #app_list.append(self.CreateMenu())
         left_panel.set_child(app_list)
         left_panel.present()
         
-        #bottom panel
-        bottom_panel.set_child(CreatFromAppList("horizontal", workspace_list_config))
-        bottom_panel.present()
+        #right panel
+        right_panel.set_child(CreatFromAppList("vertical", workspace_list_config))
+        right_panel.present()
     
         #clock widget
-        self.clock_label = Gtk.Label()
-        self.clock_label.set_markup(datetime.now().strftime('<big>%H:%M:%S</big>'))
-        clock_box = Gtk.Box(spacing=0)  
-        clock_box.append(self.clock_label)
-        GLib.timeout_add(1000, self.update_clock)
+        #self.clock_label = Gtk.Label()
+        #self.clock_label.set_markup(datetime.now().strftime('<big>%H:%M:%S</big>'))
+        #clock_box = Gtk.Box(spacing=0)  
+        #clock_box.append(self.clock_label)
+        #GLib.timeout_add(1000, self.update_clock)
+           
+        # notes label
+        self.todo_label = Gtk.Label()
+        todo_label_box = Gtk.Box(spacing=0) 
+        todo = os.path.join(home, "Documentos", "todo.txt")
+        txt = open(todo, "r").readlines()[-1]
+        self.todo_label.set_markup("  Last todo.txt Note: " + txt + "   ")
+        GLib.timeout_add(600000, self.todo_txt)
+        todo_label_box.append(self.todo_label)
+        top_panel.set_child(todo_label_box)
+        #top_panel.set_child(clock_box)
+        top_panel.present()
+
+
+        
+    def todo_txt(self):
+        todo = os.path.join(home, "Documentos", "todo.txt")
+        txt = open(todo, "r").readlines()[-1]
+        self.todo_label.set_markup("  Last todo.txt Note: " + txt + "   ")
+        return True   
     
-        top_panel.set_child(clock_box)
-        #top_panel.present()
+    def CreateMenu(self):   
+        box = Gtk.Box()    
+        menu = Gio.Menu.new()
+        with open(menu_config) as f:
+            data = f.read()
+        menu_json = json.loads(data)
+        for m in menu_json:
+            popup = Gtk.PopoverMenu.new_from_model(menu)
+            button = CreateButton(m, popup)
+            popup.set_parent(button)
+            box.append(button)
+            for item in menu_json[m].values():
+                name = item[0]["name"]
+                cmd = item[0]["cmd"]
+                menu.append_item(Gio.MenuItem.new(label=name, detailed_action=cmd))
+                new_action = Gio.SimpleAction.new(name, None)
+                new_action.connect("activate", self.new_cb)
+                app.add_action(new_action)
+        return box
+
+
         
     def update_clock(self):
         self.clock_label.set_markup(datetime.now().strftime('<big>%H:%M:%S</big>'))
         return True   
     
-app = MyApp(application_id="com.example.GtkApplication")
+app = Panel(application_id="com.example.GtkApplication")
 app.run(None)
