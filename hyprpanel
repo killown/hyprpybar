@@ -5,6 +5,7 @@ os.environ["GI_TYPELIB_PATH"] = "/usr/include/hyprpanel/src"
 from ctypes import CDLL
 CDLL('libgtk4-layer-shell.so')
 from subprocess import Popen
+from subprocess import check_output
 
 import gi
 gi.require_version("Gtk", "4.0")
@@ -17,15 +18,31 @@ from gi.repository import Gtk, Adw, GLib, Gio, Gdk
 from datetime import datetime
 import json
 import sys 
+from hyprpy import Hyprland
+from multiprocessing import Process
+from hyprpy.utils.signals import Signal
+
 
 args = sys.argv
-
 home = os.path.expanduser('~') 
 config_path = os.path.join(home, ".config/hyprpanel")
 app_list_config = os.path.join(config_path, "app.list")
 style_css_config = os.path.join(config_path, "style.css")
 workspace_list_config = os.path.join(config_path, "workspace.list")
+panel_config = os.path.join(config_path, "panel.cfg")
 menu_config = os.path.join(config_path, "menu.cfg")
+
+
+def window_changed(sender, **kwargs):
+    window = sender.get_active_window()
+    title = window.title
+    app = Panel(application_id="com.example.GtkApplication")
+    app.window_title.set_markup(title)
+    try:
+        print(window.title, kwargs)
+    except: 
+        pass
+     
 
 def run(app):
     if ";" in app:
@@ -63,6 +80,8 @@ def CreatFromAppList(orientation, app_list, class_style):
               box.append(button)
     return box
 
+
+
 def CreatePanel(app, anchor, layer, exclusive, width, height, class_style):
     window = Gtk.Window(application=app)
     window.set_default_size(width, height)
@@ -90,12 +109,18 @@ class Panel(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.connect('activate', self.on_activate)
+        self.bottom_panel = None
+        self.right_panel = None
+        self.left_panel = None
+        self.top_panel = None
 
     def on_activate(self, app):
         panel_on_top = "TOP"
         exclusive = True
         all_panels_enabled = True
+        self.instance = self.HyprlandInstance()
         default_panel = True
+        monitor_1_width = self.HyprInfo()["monitor_1_width"]
         
         print(args)
         
@@ -105,25 +130,71 @@ class Panel(Adw.Application):
         if "--background" in args:
             panel_on_top = "BOTTOM"
             exclusive = False
-               
-        bottom_panel = CreatePanel(app, "BOTTOM", panel_on_top, exclusive, 32, 0, "BottomBar")
-        right_panel = CreatePanel(app, "RIGHT", panel_on_top, exclusive, 0, 32, "RightBar")
-        left_panel = CreatePanel(app, "LEFT", panel_on_top, exclusive, 0, 32, "LeftBar")
-        top_panel = CreatePanel(app, "TOP", panel_on_top, exclusive, 0, 48, "TopBar")
+          
+        #panel.cfg setup       
+        with open(panel_config) as f:
+            data = f.read()
+            panel_json = json.loads(data)
+            for p in panel_json:
+                for item in panel_json[p].values():
+                    panel_json[p]["position"]
+                    if "bottom" in p:
+                        exclusive = True
+                        if panel_json[p]["Exclusive"] == "False":
+                            exclusive = False   
+
+                        position = panel_json[p]["position"]                  
+                        self.bottom_panel = CreatePanel(app, "BOTTOM", position, exclusive, 32, 0, "BottomBar")
+                    if "right" in p:
+                        exclusive = True
+                        if panel_json[p]["Exclusive"] == "False":
+                            exclusive = False    
+                        position = panel_json[p]["position"]                
+                        self.right_panel = CreatePanel(app, "RIGHT",  position, exclusive, 0, 32, "RightBar")                   
+                    if "left" in p:
+                        exclusive = True
+                        if panel_json[p]["Exclusive"] == "False":
+                            exclusive = False   
+                        position = panel_json[p]["position"] 
+                        self.left_panel = CreatePanel(app, "LEFT", position, exclusive, 0, 32, "LeftBar")                
+                    if "top" in p:
+                        exclusive = True
+                        if panel_json[p]["Exclusive"] == "False":
+                            exclusive = False    
+                        position = panel_json[p]["position"]
+                        print(exclusive, position)
+                        self.top_panel = CreatePanel(app, "TOP", position, exclusive, monitor_1_width, 24, "TopBar")
+                                
         
         #load css
         css_provider = Gtk.CssProvider()
         css_provider.load_from_file(Gio.File.new_for_path(style_css_config))
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         
-        #app_list.append(self.CreateMenu())
     
         #clock widget
-        #self.clock_label = Gtk.Label()
-        #self.clock_label.set_markup(datetime.now().strftime('<big>%H:%M:%S</big>'))
-        #clock_box = Gtk.Box(spacing=0)  
-        #clock_box.append(self.clock_label)
-        #GLib.timeout_add(1000, self.update_clock)
+        self.clock_label = Gtk.Label()
+        self.clock_label.set_markup(datetime.now().strftime('<big>%H:%M:%S</big>'))
+        clock_box = Gtk.Box(spacing=0)  
+        clock_box.append(self.clock_label)
+        GLib.timeout_add(1000, self.update_clock)
+        GLib.timeout_add(200, self.update_title)
+
+        #click gestures
+        gesture_right_click = Gtk.GestureClick.new()
+        gesture_right_click.connect("pressed", self.press)
+        gesture_right_click.connect("released", self.release)
+        gesture_right_click.set_button(3)
+        gesture_left_click = Gtk.GestureClick.new()
+        gesture_left_click.connect("pressed", self.press_leftButton)
+        gesture_left_click.connect("released", self.release_leftButton)
+        gesture_left_click.set_button(1)
+        left_label_spacer = Gtk.Label(label="   ")
+        label_gesture_left = Gtk.Label(label=" " * 250)
+        label_gesture_left.set_valign(True)
+        label_gesture_left.add_controller(gesture_right_click)
+        label_gesture_left.add_controller(gesture_left_click)
+        
            
         # notes label
         self.todo_label = Gtk.Label()
@@ -134,67 +205,101 @@ class Panel(Adw.Application):
         GLib.timeout_add(600000, self.todo_txt)
         todo_label_box.append(self.todo_label)
         
+        #create menus
+        for menu in self.NewMenu():
+            clock_box.append(menu)
+        
+        #setup clock
+        top_panel_box = Gtk.Box(spacing=10)
+        clock_box.set_spacing(20)
+        clock_box.set_hexpand(True)
+        top_panel_box.set_hexpand(True)
+        top_panel_box.set_orientation(Gtk.PositionType.LEFT)
+
+         
+        #setup window title
+        self.window_title = Gtk.Label()
+        window_title_box = Gtk.Box()
+        window_title_box.append(self.window_title)
+        self.window_title.add_controller(gesture_right_click)
+        top_panel_box.append(left_label_spacer)
+        top_panel_box.append(window_title_box)
+        top_panel_box.append(label_gesture_left)
+        top_panel_box.append(clock_box)
+        
+        
+        
+        #create panel buttons
         if default_panel:
             app_list = CreatFromAppList("horizontal", app_list_config, "BottomBar")
             workspace_buttons = CreatFromAppList("vertical", workspace_list_config, "RightBar")
-            bottom_panel.set_child(app_list)
-            top_panel.set_child(todo_label_box)
-            right_panel.set_child(workspace_buttons) 
-            
-        
+            self.bottom_panel.set_child(app_list)
+            self.top_panel.set_child(top_panel_box)
+            self.right_panel.set_child(workspace_buttons) 
+                    
         if [i for i in args if "topbar" in i]:  
             app_list, workspace_buttons = self.create_widgets("horizontal", "TopBar")         
             all_panels_enabled = False
-            top_panel.present()
-        if "--topbar-apps" in args:
-                top_panel.set_child(app_list)
-        if "--topbar-workspaces" in args:
-                top_panel.set_child(workspace_buttons)
-        if "--topbar-todo" in args:
-                top_panel.set_child(todo_label_box)
-
+            self.top_panel.present()
             
+            
+        #this whole section is intended to setup custom panel positions and widgets    
+        if "--topbar-apps" in args:
+                self.top_panel.set_child(app_list)
+        if "--topbar-workspaces" in args:
+                self.top_panel.set_child(workspace_buttons)
+        if "--topbar-todo" in args:
+                self.top_panel.set_child(todo_label_box)
+
         if [i for i in args if "rightbar" in i]:  
             app_list, workspace_buttons = self.create_widgets("vertical", "RightBar")         
             all_panels_enabled = False
             right_panel.present()
         if "--rightbar-apps" in args:
-            right_panel.set_child(app_list)
+            self.right_panel.set_child(app_list)
         if "--rightbar-workspaces" in args:
-            right_panel.set_child(workspace_buttons)
+            self.right_panel.set_child(workspace_buttons)
         if "--rightbar-todo" in args:
-            right_panel.set_child(todo_label_box)             
-
+            self.right_panel.set_child(todo_label_box)             
             
         if [i for i in args if "leftbar" in i]:  
             app_list, workspace_buttons = self.create_widgets("vertical", "LeftBar")          
             all_panels_enabled = False
-            left_panel.present()
+            self.left_panel.present()
         if "--leftbar-apps" in args:
-            left_panel.set_child(app_list)
+            self.left_panel.set_child(app_list)
         if "--leftbar-workspaces" in args:
-            left_panel.set_child(workspace_buttons)
+            self.left_panel.set_child(workspace_buttons)
         if "--leftbar-todo" in args:
-            left_panel.set_child(todo_label_box)
+            self.left_panel.set_child(todo_label_box)
             
         if [i for i in args if "bottombar" in i]:  
             app_list, workspace_buttons = self.create_widgets("horizontal", "BottomBar")
             all_panels_enabled = False
-            bottom_panel.present()
+            self.bottom_panel.present()
         if "--bottombar-apps" in args:
-            bottom_panel.set_child(app_list)
+            self.bottom_panel.set_child(app_list)
         if "--bottombar-workspaces" in args:
-            bottom_panel.set_child(workspace_buttons)
+            self.bottom_panel.set_child(workspace_buttons)
         if "--bottombar-todo" in args:
-            bottom_panel.set_child(todo_label_box)
+            self.bottom_panel.set_child(todo_label_box)
 
-            
+        #show all panels            
         if all_panels_enabled:
-            #top_panel.set_child(clock_box)
-            top_panel.present()
-            right_panel.present()
-            bottom_panel.present()
-     
+            self.top_panel.present()
+            self.right_panel.present()
+            self.bottom_panel.present()
+            self.left_panel.present()
+         
+         
+    def HyprlandInstance(self):    
+        return Hyprland() 
+
+    def HyprInfo(self):
+        monitor_1_width = self.instance.get_monitor_by_id(0).width
+        info = {"monitor_1_width": monitor_1_width}
+        return info
+        
     def create_widgets(self, orientation, class_style):
         app_list = CreatFromAppList(orientation, app_list_config, class_style)
         workspace_buttons = CreatFromAppList(orientation, workspace_list_config, class_style)
@@ -204,33 +309,77 @@ class Panel(Adw.Application):
         todo = os.path.join(home, "Documentos", "todo.txt")
         txt = open(todo, "r").readlines()[-1]
         self.todo_label.set_markup("  Last todo.txt Note: " + txt + "   ")
-        return True   
+        return True    
     
-    def CreateMenu(self):   
-        box = Gtk.Box()    
-        menu = Gio.Menu.new()
+    def on_button_press_event(self, widget, event):
+        if event.type == Gdk.EventType.BUTTON_PRESS and event.button == 3:
+            print("wow")
+            return True
+    
+    def press(self, gesture, data, x, y):
+        Popen("python /home/neo/.config/hypr/scripts/workspaces.py".split())
+        button = gesture.get_current_button()
+        print(button)
+        return True
+    
+    def release(self, *_):
+        print("released")
+        return True
+        
+    def press_leftButton(self, gesture, data, x, y):
+        Popen("hyprctl dispatch fullscreen 1".split())
+        button = gesture.get_current_button()
+        print(button)
+        return True
+    
+    def release_leftButton(self, *_):
+        print("released")
+        return True
+        
+    def dw_click(self,  gesture, data, x, y):
+        button = gesture.get_current_button()
+        print(button)
+
+    def NewMenu(self):   
         with open(menu_config) as f:
             data = f.read()
         menu_json = json.loads(data)
+        menu_buttons = []
         for m in menu_json:
-            popup = Gtk.PopoverMenu.new_from_model(menu)
-            button = CreateButton(m, popup, "popup")
-            popup.set_parent(button)
-            box.append(button)
+            actions = Gio.Menu()
+            btn = Gtk.MenuButton(label = m) 
+            menu_buttons.append(btn)
             for item in menu_json[m].values():
-                name = item[0]["name"]
+                app_name = item[0]["name"]
                 cmd = item[0]["cmd"]
-                menu.append_item(Gio.MenuItem.new(label=name, detailed_action=cmd))
-                new_action = Gio.SimpleAction.new(name, None)
-                new_action.connect("activate", self.new_cb)
-                app.add_action(new_action)
-        return box
+                actions.append(app_name, cmd)
+                btn.install_action(cmd, None, self.menu_run_action)
+                btn.set_menu_model(actions)         
+        return menu_buttons
 
 
+    def menu_run_action(self, action, param, something):
+        run(param)
         
     def update_clock(self):
         self.clock_label.set_markup(datetime.now().strftime('<big>%H:%M:%S</big>'))
-        return True   
+        return True  
+        
+    def update_title(self):
+        try:
+            maxlen = 50
+            title = self.instance.get_active_window().title
+            empity_spaces = maxlen - len(title)
+            title = title + empity_spaces * " "
+            title = title[0:50]
+            self.window_title.set_markup(title)
+            #print(len(title), title)
+            return True
+        except:
+            return True
+
+ 
     
-app = Panel(application_id="com.example.GtkApplication")
+app = Panel(application_id="com.hyprpanel.GtkApplication")
+
 app.run(None)
