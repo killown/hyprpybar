@@ -140,7 +140,6 @@ class Panel(Adw.Application):
     def on_activate(self, app):
         self.top_panel_box_left .add_css_class("top_panel_box_left")
         a = self.top_panel_box_left.get_width()
-        print(a)
         self.top_panel_box_right .add_css_class("top_panel_box_right")  
         self.top_panel_box_center .add_css_class("top_panel_box_center")     
         self.top_panel_box_full .add_css_class("top_panel_box_full")      
@@ -213,8 +212,6 @@ class Panel(Adw.Application):
         GLib.timeout_add(1000, self.update_clock)
         GLib.timeout_add(200, self.update_title)
         GLib.timeout_add(10000, self.mullvad_status)
-        #at the start, the hyuprInfo don' t have monitor width, so retry to get the info
-        GLib.timeout_add(1000, self.request_hyprland_info)
         
 
         #volbox = Gtk.Box()
@@ -366,15 +363,6 @@ class Panel(Adw.Application):
             mullvad.set_label("Mullvad")
             
         return True
-      
-    def request_hyprland_info(self):
-        try:
-            #no need to store the var, just try get the info, if fails, keep trying until it works
-            self.HyprInfo()["monitor_1_width"]
-        except:
-            print("No HyprInfo Yet")
-            return True
-        return False
     
     def on_volume_value_changed(self,volumebutton,value):
         print(value)
@@ -394,11 +382,8 @@ class Panel(Adw.Application):
         return monitor_info
     
     def HyprInfo(self):
-        info = None
-        if self.instance:
-           self.monitor_1_width = self.instance.get_monitor_by_id(0).width
-           info = {"monitor_1_width": monitor_1_width}
-           info["window_class"] = self.instance.get_active_window().initial_wm_class
+        info = {}
+        info["window_class"] = self.instance.get_active_window().initial_wm_class
         return info
         
     def create_widgets(self, orientation, class_style):
@@ -482,24 +467,19 @@ class Panel(Adw.Application):
         return json.loads(data)
            
     def update_title(self):
-        try:
             title = self.instance.get_active_window().title
             title = title[0:100]
             if " — " in title:
                 title = title.split(" — ")[0]
             self.window_title.set_label(title)
-            wclass = self.HyprInfo()["window_class"].lower()
+
             #quick fix for wrong icon names
+            wclass = self.HyprInfo()["window_class"].lower()
             try:
                 wclass = self.panel_cfg["change_icon_title"][wclass]
             except:
                 pass
-            
             self.icon_title.set_icon_name(wclass)
-            
-            #print(len(title), title)
-            return True
-        except:
             return True
    
 app = Panel(application_id="com.hyprpanel.GtkApplication")
