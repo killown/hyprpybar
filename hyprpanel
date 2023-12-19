@@ -131,7 +131,10 @@ class Panel(Adw.Application):
         self.top_panel_box_full.prepend(self.top_panel_box_right)
         self.top_panel_box_full.prepend(self.top_panel_box_left)
         self.top_panel_box_full.prepend(self.top_panel_box_center)
-   
+        self.panel_cfg = self.load_panel_config()
+        self.monitor_width = 0
+        self.monitor_height = 0
+        
 
 
     def on_activate(self, app):
@@ -146,7 +149,13 @@ class Panel(Adw.Application):
         all_panels_enabled = True
         self.instance = self.HyprlandInstance()
         default_panel = True
-        monitor_1_width = self.HyprInfo()["monitor_1_width"]
+        
+        #get monitor info and set the width, height for the panel
+        monitor_info = self.get_monitor_info()
+        for monitor_name in monitor_info:
+            if self.instance.get_monitor_by_name(name=monitor_name).is_focused:
+                self.monitor_width, self.monitor_height = monitor_info[monitor_name]
+                print(monitor_info[monitor_name])
         
         if "--custom" in args:
             default_panel = False
@@ -160,8 +169,6 @@ class Panel(Adw.Application):
             data = f.read()
             panel_json = json.loads(data)
             for p in panel_json:
-                for item in panel_json[p].values():
-                    panel_json[p]["position"]
                     if "bottom" in p:
                         exclusive = True
                         if panel_json[p]["Exclusive"] == "False":
@@ -186,7 +193,7 @@ class Panel(Adw.Application):
                         if panel_json[p]["Exclusive"] == "False":
                             exclusive = False    
                         position = panel_json[p]["position"]
-                        self.top_panel = CreatePanel(app, "TOP", position, exclusive, monitor_1_width, 24, "TopBar")
+                        self.top_panel = CreatePanel(app, "TOP", position, exclusive, self.monitor_width, 24, "TopBar")
                                 
         
         #load css
@@ -196,15 +203,30 @@ class Panel(Adw.Application):
         
         
         #clock widget
-        self.clock_label = Gtk.Label()
-        self.clock_label.set_markup(datetime.now().strftime('<big> %H:%M:%S</big>'))
+        self.clock_box = Gtk.Box()
+        self.clock_button = CreateButton("clock", "thunderbird -calendar", "clock")
+        self.clock_box.append(self.clock_button)
+        self.top_panel_box_left.append(self.clock_box)
 
-        self.top_panel_box_center.append(self.clock_label)
+
+        self.top_panel_box_center.append(self.clock_box)
         GLib.timeout_add(1000, self.update_clock)
         GLib.timeout_add(200, self.update_title)
+        GLib.timeout_add(10000, self.mullvad_status)
+        #at the start, the hyuprInfo don' t have monitor width, so retry to get the info
+        GLib.timeout_add(1000, self.request_hyprland_info)
+        
+
+        #volbox = Gtk.Box()
+        #self.top_panel_box_left.append(volbox)
+
+
+        #volumebutton = Gtk.VolumeButton.new()
+        #volumebutton.connect("value-changed",self.on_volume_value_changed)
+        #volbox.append(volumebutton)
 
         #click gestures
-        label_gesture_left = Gtk.Label(label=" " * 200)
+        label_gesture_left = Gtk.Label(label=" " * 150)
         gesture_right_click = Gtk.GestureClick.new()
         gesture_right_click.connect("pressed", self.press)
         gesture_right_click.connect("released", self.release)     
@@ -225,19 +247,26 @@ class Panel(Adw.Application):
         self.todo_label.set_markup("  Last todo.txt Note: " + txt + "   ")
         GLib.timeout_add(600000, self.todo_txt)
 
+        self.menus = self.NewMenu()
         
         #create menus
-        for menu in self.NewMenu():
+        for menu in self.menus.values():
             self.top_panel_box_center.append(menu)
        
         #gesture space for clicks 
         self.top_panel_box_left.append(label_gesture_left)
+                
+        self.iconbox = Gtk.Box(spacing=0)
+        self.icon_title = CreateButton("kitty", "nwg-drawer", "kitty")
+        self.iconbox.append(self.icon_title)
+        self.top_panel_box_left.append(self.iconbox)
         
         #setup window title
-        self.window_title = Gtk.Label()
+        self.window_title = Gtk.Button()
         self.top_panel_box_left.append(self.window_title)
-        self.window_title.add_controller(gesture_right_click)
         self.window_title.add_css_class("WindowTitle")
+        self.window_title.connect("clicked", lambda x: run("swaync-client -t"))
+        
 
 
         #gestures right side
@@ -263,9 +292,7 @@ class Panel(Adw.Application):
         EventScroll.connect("scroll", self.scroll_event)
         label_gesture_right.add_controller(EventScroll)
         self.top_panel_box_right.append(label_gesture_right)
-
-        
-        
+         
         
         #create panel buttons
         if default_panel:
@@ -329,13 +356,49 @@ class Panel(Adw.Application):
             self.bottom_panel.present()
             self.left_panel.present()
          
-         
+    def mullvad_status(self):
+        o = check_output("mullvad status".split()).decode()
+        if "Disconnected" in o:
+            mullvad = self.menus["Mullvad"]
+            mullvad.set_label("Mullvad Disconnected")
+        if "Connected" in o:
+            mullvad = self.menus["Mullvad"]
+            mullvad.set_label("Mullvad")
+            
+        return True
+      
+    def request_hyprland_info(self):
+        try:
+            #no need to store the var, just try get the info, if fails, keep trying until it works
+            self.HyprInfo()["monitor_1_width"]
+        except:
+            print("No HyprInfo Yet")
+            return True
+        return False
+    
+    def on_volume_value_changed(self,volumebutton,value):
+        print(value)
+               
     def HyprlandInstance(self):    
         return Hyprland() 
 
+    def get_monitor_info(self):
+        screen = Gdk.Display.get_default()
+        monitors = screen.get_monitors()
+        monitor_info = {}
+        for monitor in monitors:
+            monitor_width = monitor.get_geometry().width
+            monitor_height = monitor.get_geometry().height
+            name = monitor.props.connector
+            monitor_info[name] = [monitor_width, monitor_height]
+        return monitor_info
+    
     def HyprInfo(self):
-        monitor_1_width = self.instance.get_monitor_by_id(0).width
-        info = {"monitor_1_width": monitor_1_width}
+        info = None
+        if self.instance:
+           self.monitor_1_width = self.instance.get_monitor_by_id(0).width
+           info = {"monitor_1_width": monitor_1_width}
+           info["window_class"] = self.instance.get_active_window().initial_wm_class
         return info
         
     def create_widgets(self, orientation, class_style):
@@ -354,7 +417,7 @@ class Panel(Adw.Application):
             return True
     
     def right_side_middle_click(elf, gesture, data, x, y):
-        Popen("gnome-terminal".split())
+        Popen("kitty".split())
         
     def scroll_event(self, controller, _dx, dy):
         #mouse whell down is 1.0, -1.0 wheel up
@@ -391,34 +454,49 @@ class Panel(Adw.Application):
         with open(menu_config) as f:
             data = f.read()
         menu_json = json.loads(data)
-        menu_buttons = []
+        menu_buttons = {}
         for m in menu_json:
             actions = Gio.Menu()
-            btn = Gtk.MenuButton(label = m) 
-            menu_buttons.append(btn)
+            btn = Gtk.MenuButton(label = m)           
+            menu_buttons[m] = btn
             for item in menu_json[m].values():
-                app_name = item[0]["name"]
-                cmd = item[0]["cmd"]
-                actions.append(app_name, cmd)
-                btn.install_action(cmd, None, self.menu_run_action)
+                name = item[0]["name"]
+                action = item[0]["cmd"].replace(" ", "________")
+                actions.append(name, action)
+                btn.install_action(action, None, self.menu_run_action)
                 btn.set_menu_model(actions)         
         return menu_buttons
 
 
     def menu_run_action(self, action, param, something):
+        param = param.replace("________", " ")
         run(param)
         
     def update_clock(self):
-        self.clock_label.set_markup(datetime.now().strftime('<big> %H:%M:%S</big>'))
-        return True  
-        
+        self.clock_button.set_label(datetime.now().strftime('%d %a %H:%M'))
+        return True
+      
+    def load_panel_config(self):
+        with open(panel_config) as f:
+            data = f.read()
+        return json.loads(data)
+           
     def update_title(self):
         try:
             title = self.instance.get_active_window().title
             title = title[0:100]
             if " — " in title:
                 title = title.split(" — ")[0]
-            self.window_title.set_markup(title)
+            self.window_title.set_label(title)
+            wclass = self.HyprInfo()["window_class"].lower()
+            #quick fix for wrong icon names
+            try:
+                wclass = self.panel_cfg["change_icon_title"][wclass]
+            except:
+                pass
+            
+            self.icon_title.set_icon_name(wclass)
+            
             #print(len(title), title)
             return True
         except:
