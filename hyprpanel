@@ -30,7 +30,8 @@ if not found:
 from hyprpy import Hyprland
 from multiprocessing import Process
 from hyprpy.utils.signals import Signal
-
+import psutil
+import math
 
 args = sys.argv
 home = os.path.expanduser('~') 
@@ -40,7 +41,7 @@ style_css_config = os.path.join(config_path, "style.css")
 workspace_list_config = os.path.join(config_path, "workspace.list")
 panel_config = os.path.join(config_path, "panel.cfg")
 menu_config = os.path.join(config_path, "menu.cfg")
-
+psutil_store = {}
 
 def window_changed(sender, **kwargs):
     window = sender.get_active_window()
@@ -90,6 +91,20 @@ def CreatFromAppList(orientation, app_list, class_style):
     return box
 
 
+def convert_size(size_bytes):
+   if size_bytes == 0:
+       return "0B"
+   size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+   i = int(math.floor(math.log(size_bytes, 1024)))
+   p = math.pow(1024, i)
+   s = round(size_bytes / p, 2)
+   return "%s %s" % (s, size_name[i])
+
+
+def buttons_for_background(class_style):
+    tbtn_title_b = Gtk.Button(label="Testando")
+    tbtn_title_b.add_css_class(class_style)
+    return tbtn_title_b
 
 def CreatePanel(app, anchor, layer, exclusive, width, height, class_style):
     window = Adw.Window(application=app)
@@ -108,12 +123,18 @@ def CreatePanel(app, anchor, layer, exclusive, width, height, class_style):
         LayerShell.set_anchor(window, LayerShell.Edge.BOTTOM, True)
     LayerShell.set_margin(window, LayerShell.Edge.BOTTOM, 0)
     LayerShell.set_margin(window, LayerShell.Edge.TOP, 0)
+    if class_style == "TopBarBackground":
+        LayerShell.set_margin(window, LayerShell.Edge.BOTTOM, 4)
+        LayerShell.set_margin(window, LayerShell.Edge.TOP, 4)
+        
     if(layer == "BOTTOM"):
-        LayerShell.set_layer (window, LayerShell.Layer.BOTTOM);
+        LayerShell.set_layer (window, LayerShell.Layer.BOTTOM)
     if(layer == "TOP"):
-        LayerShell.set_layer (window, LayerShell.Layer.TOP);
+        LayerShell.set_layer (window, LayerShell.Layer.TOP)
     if(exclusive == True):
         LayerShell.auto_exclusive_zone_enable(window)
+
+        
     return window
 
 class Panel(Adw.Application):
@@ -124,13 +145,15 @@ class Panel(Adw.Application):
         self.right_panel = None
         self.left_panel = None
         self.top_panel = None
+        self.top_panel_background = None
         self.top_panel_box_left = Gtk.Box(spacing=6)
         self.top_panel_box_right = Gtk.Box(spacing=6)      
         self.top_panel_box_center = Gtk.Box(spacing=6)     
         self.top_panel_box_full = Gtk.Box(spacing=20) 
         self.top_panel_box_full.prepend(self.top_panel_box_right)
-        self.top_panel_box_full.prepend(self.top_panel_box_left)
         self.top_panel_box_full.prepend(self.top_panel_box_center)
+        self.top_panel_box_full.prepend(self.top_panel_box_left)
+
         self.panel_cfg = self.load_panel_config()
         self.monitor_width = 0
         self.monitor_height = 0
@@ -154,7 +177,7 @@ class Panel(Adw.Application):
         for monitor_name in monitor_info:
             if self.instance.get_monitor_by_name(name=monitor_name).is_focused:
                 self.monitor_width, self.monitor_height = monitor_info[monitor_name]
-                print(monitor_info[monitor_name])
+
         
         if "--custom" in args:
             default_panel = False
@@ -163,36 +186,44 @@ class Panel(Adw.Application):
             panel_on_top = "BOTTOM"
             exclusive = False
           
+          
         #panel.cfg setup       
         with open(panel_config) as f:
             data = f.read()
             panel_json = json.loads(data)
             for p in panel_json:
-                    if "bottom" in p:
+                    if "bottom" == p:
                         exclusive = True
                         if panel_json[p]["Exclusive"] == "False":
                             exclusive = False   
 
                         position = panel_json[p]["position"]                  
                         self.bottom_panel = CreatePanel(app, "BOTTOM", position, exclusive, 32, 0, "BottomBar")
-                    if "right" in p:
+                    if "right" == p:
                         exclusive = True
                         if panel_json[p]["Exclusive"] == "False":
                             exclusive = False    
                         position = panel_json[p]["position"]                
                         self.right_panel = CreatePanel(app, "RIGHT",  position, exclusive, 0, 32, "RightBar")                   
-                    if "left" in p:
+                    if "left" == p:
                         exclusive = True
                         if panel_json[p]["Exclusive"] == "False":
                             exclusive = False   
                         position = panel_json[p]["position"] 
                         self.left_panel = CreatePanel(app, "LEFT", position, exclusive, 0, 32, "LeftBar")                
-                    if "top" in p:
+                    if "top" == p:
                         exclusive = True
                         if panel_json[p]["Exclusive"] == "False":
                             exclusive = False    
                         position = panel_json[p]["position"]
                         self.top_panel = CreatePanel(app, "TOP", position, exclusive, self.monitor_width, 24, "TopBar")
+                    if "top_background" == p:
+                        exclusive = True
+                        if panel_json[p]["Exclusive"] == "False":
+                            exclusive = False    
+                        position = panel_json[p]["position"]
+                        self.top_panel_background = CreatePanel(app, "TOP", position, exclusive, self.monitor_width, 48, "TopBarBackground")
+                        
                                 
         
         #load css
@@ -202,16 +233,24 @@ class Panel(Adw.Application):
         
         
         #clock widget
-        self.clock_box = Gtk.Box()
         self.clock_button = CreateButton("clock", "thunderbird -calendar", "clock")
-        self.clock_box.append(self.clock_button)
-        self.top_panel_box_left.append(self.clock_box)
+        
+        
+        #close, maximize, full screen buttons
+        close_button = CreateButton("window-close-symbolic", "hyprctl dispatch killactive", "close_button")
+        maximize_button = CreateButton("window-maximize-symbolic", "hyprctl dispatch fullscreen 0", "maximize_button")
+        fullscreen_button = CreateButton("view-fullscreen-symbolic", "hyprctl dispatch fullscreen 1", "fullscreen_button")
+        self.top_panel_box_left.append(close_button)  
+        self.top_panel_box_left.append(maximize_button)  
+        self.top_panel_box_left.append(fullscreen_button)  
+        
+        
+        
 
-
-        self.top_panel_box_center.append(self.clock_box)
         GLib.timeout_add(1000, self.update_clock)
         GLib.timeout_add(200, self.update_title)
         GLib.timeout_add(10000, self.mullvad_status)
+        GLib.timeout_add(600000, self.clean_pid_store)
         
 
         #volbox = Gtk.Box()
@@ -223,7 +262,9 @@ class Panel(Adw.Application):
         #volbox.append(volumebutton)
 
         #click gestures
-        label_gesture_left = Gtk.Label(label=" " * 150)
+        gesture_left_space = " " * (round(self.monitor_width /  15))
+        label_gesture_left = Gtk.Label(label=gesture_left_space)
+        label_gesture_left.set_wrap(True)
         gesture_right_click = Gtk.GestureClick.new()
         gesture_right_click.connect("pressed", self.press)
         gesture_right_click.connect("released", self.release)     
@@ -245,14 +286,16 @@ class Panel(Adw.Application):
         GLib.timeout_add(600000, self.todo_txt)
 
         self.menus = self.NewMenu()
-        
         #create menus
         for menu in self.menus.values():
-            self.top_panel_box_center.append(menu)
+            self.top_panel_box_left.append(menu)        
+
        
         #gesture space for clicks 
         self.top_panel_box_left.append(label_gesture_left)
                 
+        self.top_panel_box_left.append(self.clock_button)
+         
         self.iconbox = Gtk.Box(spacing=0)
         self.icon_title = CreateButton("kitty", "nwg-drawer", "kitty")
         self.iconbox.append(self.icon_title)
@@ -264,10 +307,30 @@ class Panel(Adw.Application):
         self.window_title.add_css_class("WindowTitle")
         self.window_title.connect("clicked", lambda x: run("swaync-client -t"))
         
+        #setup label for top bar background
+        self.tbbox = Gtk.Box(spacing=6)
+        self.tbworkspace = buttons_for_background("tbworkspace")
+        self.tbpid = buttons_for_background("tbpid")  
+        self.tbpid.connect("clicked", self.copy_to_clipboard)
+        self.tbclass = buttons_for_background("tbclass")     
+        self.tbcpusage = buttons_for_background("tbcpusage") 
+        self.tbmemusage = buttons_for_background("tbmemusage") 
+        self.tbexe = buttons_for_background("tbexe")
+        self.tbbox.append(self.tbworkspace)
+        self.tbbox.append(self.tbpid)
+        self.tbbox.append(self.tbclass)     
+        self.tbbox.append(self.tbcpusage) 
+        self.tbbox.append(self.tbmemusage)   
+        self.tbbox.append(self.tbexe)    
+        self.top_panel_background.set_content(self.tbbox)
 
 
         #gestures right side
-        label_gesture_right = Gtk.Label(label=" " * 150)
+        gesture_right_space = " " * round(self.monitor_width / 15)
+        if self.monitor_width < 2000:
+            gesture_right_space = " " * round(self.monitor_width / 20)
+        label_gesture_right = Gtk.Label(label=gesture_right_space)
+        label_gesture_right.set_wrap(True)
         gesture_right_click = Gtk.GestureClick.new()
         gesture_right_click.connect("pressed", self.press)
         gesture_right_click.connect("released", self.release)
@@ -289,7 +352,7 @@ class Panel(Adw.Application):
         EventScroll.connect("scroll", self.scroll_event)
         label_gesture_right.add_controller(EventScroll)
         self.top_panel_box_right.append(label_gesture_right)
-         
+
         
         #create panel buttons
         if default_panel:
@@ -303,7 +366,6 @@ class Panel(Adw.Application):
             app_list, workspace_buttons = self.create_widgets("horizontal", "TopBar")         
             all_panels_enabled = False
             self.top_panel.present()
-            
             
         #this whole section is intended to setup custom panel positions and widgets    
         if "--topbar-apps" in args:
@@ -352,6 +414,7 @@ class Panel(Adw.Application):
             self.right_panel.present()
             self.bottom_panel.present()
             self.left_panel.present()
+            self.top_panel_background.present()
          
     def mullvad_status(self):
         o = check_output("mullvad status".split()).decode()
@@ -380,6 +443,8 @@ class Panel(Adw.Application):
             name = monitor.props.connector
             monitor_info[name] = [monitor_width, monitor_height]
         return monitor_info
+    
+
     
     def HyprInfo(self):
         info = {}
@@ -465,22 +530,54 @@ class Panel(Adw.Application):
         with open(panel_config) as f:
             data = f.read()
         return json.loads(data)
+    
+    def clean_pid_store(self):
+        #[optimization]
+        # every 10 minutes check for non-existent pids and clean the dict
+        for pid in psutil_store.keys():
+            if pid not in pid_list:
+                del psutil_store[pid]
+        
+    def copy_to_clipboard(self, *_):
+        #lazy to not use wl-copy
+        run("wl-copy {0}".format(self.instance.get_active_window().pid))    
            
     def update_title(self):
-            title = self.instance.get_active_window().title
-            title = title[0:100]
+        try:
+            active_window = self.instance.get_active_window()
+            title = active_window.title
+            title = title[0:48]
+            workspace_id = active_window.workspace.id
+            pid = active_window.pid
+            wclass = active_window.initial_wm_class.lower()
+            if not pid in psutil_store.keys():
+                process = psutil.Process(pid)
+                psutil_store[pid] = process
+
+            mem_usage = convert_size(psutil_store[pid].memory_info().rss)
+            exe = psutil_store[pid].exe()
+            cpu_usage = psutil_store[pid].cpu_percent()
             if " — " in title:
                 title = title.split(" — ")[0]
+            title = "W:{0} - {1}".format(workspace_id,  title)
             self.window_title.set_label(title)
-
-            #quick fix for wrong icon names
-            wclass = self.HyprInfo()["window_class"].lower()
+            self.tbworkspace.set_label("Workspace: {0}".format(workspace_id))
+            self.tbpid.set_label("PID: {0}".format(pid))
+            self.tbclass.set_label("Class: {0}".format(wclass))
+            self.tbcpusage.set_label("CPU: {0}%".format(cpu_usage))
+            self.tbmemusage.set_label("MEM: {0}".format(mem_usage))
+            self.tbexe.set_label("Exe: {0}".format(exe))
             try:
+                #exclusive try because if it fails, will not set the icon at all
                 wclass = self.panel_cfg["change_icon_title"][wclass]
             except:
                 pass
             self.icon_title.set_icon_name(wclass)
-            return True
+        except:
+            pass
+        
+        return True
+
    
 app = Panel(application_id="com.hyprpanel.GtkApplication")
 
