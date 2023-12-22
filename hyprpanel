@@ -43,7 +43,7 @@ home = os.path.expanduser('~')
 config_path = os.path.join(home, ".config/hyprpanel")
 dockbar_config = os.path.join(config_path, "dockbar.toml")
 style_css_config = os.path.join(config_path, "style.css")
-workspace_list_config = os.path.join(config_path, "workspace.list")
+workspace_list_config = os.path.join(config_path, "workspacebar.toml")
 panel_config = os.path.join(config_path, "panel.toml")
 menu_config = os.path.join(config_path, "menu.toml")
 psutil_store = {}
@@ -624,7 +624,7 @@ class Panel(Adw.Application):
 
     def CreatFromAppList(self, orientation, app_list, class_style):
         box = Gtk.Box(spacing=0, orientation=orientation)
-        with open(dockbar_config, 'r') as f:
+        with open(app_list, 'r') as f:
             config = toml.load(f)
             for app in config:
                 button = self.CreateButton(config[app]["icon"], config[app]["cmd"], class_style)
@@ -632,7 +632,6 @@ class Panel(Adw.Application):
         return box
 
         
-
     def copy_to_clipboard(self, *_):
         #lazy to not use wl-copy
         run("wl-copy {0}".format(self.instance.get_active_window().pid))    
