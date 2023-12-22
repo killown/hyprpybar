@@ -32,6 +32,8 @@ from multiprocessing import Process
 from hyprpy.utils.signals import Signal
 import psutil
 import math
+import pulsectl
+
 
 args = sys.argv
 home = os.path.expanduser('~') 
@@ -42,6 +44,8 @@ workspace_list_config = os.path.join(config_path, "workspace.list")
 panel_config = os.path.join(config_path, "panel.cfg")
 menu_config = os.path.join(config_path, "menu.cfg")
 psutil_store = {}
+
+
 
 def window_changed(sender, **kwargs):
     window = sender.get_active_window()
@@ -101,11 +105,19 @@ def convert_size(size_bytes):
    return "%s %s" % (s, size_name[i])
 
 
-def buttons_for_background(class_style):
-    tbtn_title_b = Gtk.Button(label="Testando")
+def buttons_for_background(class_style, icon_name):
+    tbtn_title_b =  Adw.ButtonContent()
+    tbtn_title_b.set_icon_name(icon_name)
     tbtn_title_b.add_css_class(class_style)
     return tbtn_title_b
 
+def CreateGesture(button, button_number, callback):
+        gesture = Gtk.GestureClick.new()
+        gesture.connect("pressed", callback)
+        gesture.connect("released", callback)     
+        gesture.set_button(button_number)
+        button.add_controller(gesture)
+        
 def CreatePanel(app, anchor, layer, exclusive, width, height, class_style):
     window = Adw.Window(application=app)
     window.set_default_size(width, height)
@@ -137,6 +149,9 @@ def CreatePanel(app, anchor, layer, exclusive, width, height, class_style):
         
     return window
 
+
+
+ 
 class Panel(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -146,7 +161,7 @@ class Panel(Adw.Application):
         self.left_panel = None
         self.top_panel = None
         self.top_panel_background = None
-        self.top_panel_box_left = Gtk.Box(spacing=6)
+        self.top_panel_box_left = Gtk.Box(spacing=10)
         self.top_panel_box_right = Gtk.Box(spacing=6)      
         self.top_panel_box_center = Gtk.Box(spacing=6)     
         self.top_panel_box_full = Gtk.Box(spacing=20) 
@@ -157,20 +172,26 @@ class Panel(Adw.Application):
         self.panel_cfg = self.load_panel_config()
         self.monitor_width = 0
         self.monitor_height = 0
+        self.toggle_mute = {}
+        self.volume = 0
         
-
 
     def on_activate(self, app):
         self.top_panel_box_left .add_css_class("top_panel_box_left")
-        a = self.top_panel_box_left.get_width()
         self.top_panel_box_right .add_css_class("top_panel_box_right")  
         self.top_panel_box_center .add_css_class("top_panel_box_center")     
-        self.top_panel_box_full .add_css_class("top_panel_box_full")      
+        self.top_panel_box_center .props.halign = Gtk.Align.FILL  
+        self.top_panel_box_full .add_css_class("top_panel_box_full")     
         panel_on_top = "TOP"
         exclusive = True
         all_panels_enabled = True
         self.instance = self.HyprlandInstance()
         default_panel = True
+        
+
+
+    
+        settings_window = Adw.PreferencesWindow()
         
         #get monitor info and set the width, height for the panel
         monitor_info = self.get_monitor_info()
@@ -233,15 +254,16 @@ class Panel(Adw.Application):
         
         
         #clock widget
-        self.clock_button = CreateButton("clock", "thunderbird -calendar", "clock")
+        self.clock_box = Gtk.Box()
+        self.clock_box.add_css_class("Clock")
+        self.clock_button = CreateButton("clock", "thunderbird -calendar", "ClockButton")
+        self.clock_box.append(self.clock_button)
         
         
         #close, maximize, full screen buttons
         close_button = CreateButton("window-close-symbolic", "hyprctl dispatch killactive", "close_button")
-        maximize_button = CreateButton("window-maximize-symbolic", "hyprctl dispatch fullscreen 0", "maximize_button")
-        fullscreen_button = CreateButton("view-fullscreen-symbolic", "hyprctl dispatch fullscreen 1", "fullscreen_button")
+        fullscreen_button = CreateButton("gtk-fullscreen", "hyprctl dispatch fullscreen", "fullscreen_button")
         self.top_panel_box_left.append(close_button)  
-        self.top_panel_box_left.append(maximize_button)  
         self.top_panel_box_left.append(fullscreen_button)  
         
         
@@ -253,8 +275,6 @@ class Panel(Adw.Application):
         GLib.timeout_add(600000, self.clean_pid_store)
         
 
-        #volbox = Gtk.Box()
-        #self.top_panel_box_left.append(volbox)
 
 
         #volumebutton = Gtk.VolumeButton.new()
@@ -262,7 +282,7 @@ class Panel(Adw.Application):
         #volbox.append(volumebutton)
 
         #click gestures
-        gesture_left_space = " " * (round(self.monitor_width /  15))
+        gesture_left_space = " " * (round(self.monitor_width /  13))
         label_gesture_left = Gtk.Label(label=gesture_left_space)
         label_gesture_left.set_wrap(True)
         gesture_right_click = Gtk.GestureClick.new()
@@ -288,45 +308,64 @@ class Panel(Adw.Application):
         self.menus = self.NewMenu()
         #create menus
         for menu in self.menus.values():
-            self.top_panel_box_left.append(menu)        
+            self.top_panel_box_left.append(menu)       
+             
 
        
         #gesture space for clicks 
         self.top_panel_box_left.append(label_gesture_left)
-                
-        self.top_panel_box_left.append(self.clock_button)
+        self.top_panel_box_left.append(self.clock_box)
          
         self.iconbox = Gtk.Box(spacing=0)
         self.icon_title = CreateButton("kitty", "nwg-drawer", "kitty")
         self.iconbox.append(self.icon_title)
-        self.top_panel_box_left.append(self.iconbox)
+        #self.top_panel_box_left.append(self.iconbox)
         
         #setup window title
-        self.window_title = Gtk.Button()
+        self.window_title = Adw.ButtonContent()
         self.top_panel_box_left.append(self.window_title)
         self.window_title.add_css_class("WindowTitle")
-        self.window_title.connect("clicked", lambda x: run("swaync-client -t"))
+        #self.window_title.connect("clicked", lambda x: run("swaync-client -t"))
         
         #setup label for top bar background
-        self.tbbox = Gtk.Box(spacing=6)
-        self.tbworkspace = buttons_for_background("tbworkspace")
-        self.tbpid = buttons_for_background("tbpid")  
-        self.tbpid.connect("clicked", self.copy_to_clipboard)
-        self.tbclass = buttons_for_background("tbclass")     
-        self.tbcpusage = buttons_for_background("tbcpusage") 
-        self.tbmemusage = buttons_for_background("tbmemusage") 
-        self.tbexe = buttons_for_background("tbexe")
+        self.tbbox = Gtk.Box(spacing=20)
+        self.tblabelspace = Gtk.Label(label="    ")
+        self.tbworkspace = buttons_for_background("tbworkspace", "workspace-symbolic")
+        self.tbpid = buttons_for_background("tbpid", "view-process-tree")  
+        self.tbpid_gesture = CreateGesture(self.tbpid, 1, self.copy_to_clipboard)
+        self.tbclass = buttons_for_background("tbclass", "cs-windows-symbolic")     
+        self.tbcpusage = buttons_for_background("tbcpusage", "cpu-frequency-indicator") 
+        self.tbmemusage = buttons_for_background("tbmemusage","indicator-sensors-memory") 
+        self.tbsinkinput = buttons_for_background("tbsinkinput", "multimedia-volume-control-symbolic") 
+        self.tbSIGKILL = buttons_for_background("tbSIGKILL", "window-close-symbolic") 
+        self.tbdiskusage = buttons_for_background("tbdiskusage", "disk-check-symbolic") 
+        self.tbvol = buttons_for_background("tbvol", "multimedia-volume-control-symbolic") 
+        self.tbcard = buttons_for_background("tbvoltbcard", "audio-card") 
+        self.tbdiskusage.set_label("Disk Usage")
+        self.tbsinkinput.set_label("Toggle Mute")
+        self.tbvol.set_label("Volume")
+        self.tbSIGKILL.set_label("SIGKILL")
+        self.tbexe = buttons_for_background("tbexe", "exec")
+        self.tbbox.append(self.tblabelspace)
         self.tbbox.append(self.tbworkspace)
+        self.tbbox.append(self.tbclass)   
         self.tbbox.append(self.tbpid)
-        self.tbbox.append(self.tbclass)     
+        self.tbbox.append(self.tbSIGKILL)
+        #self.tbbox.append(self.tbsinkinput) 
+        #self.tbbox.append(self.tbcard) 
+        self.tbbox.append(self.tbvol)  
         self.tbbox.append(self.tbcpusage) 
         self.tbbox.append(self.tbmemusage)   
-        self.tbbox.append(self.tbexe)    
+        #self.tbbox.append(self.tbexe)  
+        self.tbbox.append(self.tbdiskusage)
+        CreateGesture(self.tbSIGKILL, 1, self.sigkill_activewindow)
+        CreateGesture(self.tbvol, 1, self.toggle_mute_from_sink)
+        
+        #self.tbSIGKILL.connect("clicked", self.sigkill_activewindow)
         self.top_panel_background.set_content(self.tbbox)
 
-
         #gestures right side
-        gesture_right_space = " " * round(self.monitor_width / 15)
+        gesture_right_space = " " * round(self.monitor_width / 10)
         if self.monitor_width < 2000:
             gesture_right_space = " " * round(self.monitor_width / 20)
         label_gesture_right = Gtk.Label(label=gesture_right_space)
@@ -344,7 +383,7 @@ class Panel(Adw.Application):
         gesture_left_click.connect("released", self.release_leftButton)
         gesture_left_click.set_button(1)
         
-        label_gesture_right.set_valign(True)
+
         label_gesture_right.add_controller(gesture_right_click)
         label_gesture_right.add_controller(gesture_left_click)
         label_gesture_right.add_controller(gesture_middle_click)
@@ -354,6 +393,8 @@ class Panel(Adw.Application):
         self.top_panel_box_right.append(label_gesture_right)
 
         
+
+                
         #create panel buttons
         if default_panel:
             app_list = CreatFromAppList("horizontal", app_list_config, "BottomBar")
@@ -415,17 +456,38 @@ class Panel(Adw.Application):
             self.bottom_panel.present()
             self.left_panel.present()
             self.top_panel_background.present()
-         
+        
+
+        
+
+                
     def mullvad_status(self):
         o = check_output("mullvad status".split()).decode()
         if "Disconnected" in o:
-            mullvad = self.menus["Mullvad"]
-            mullvad.set_label("Mullvad Disconnected")
+            mullvad = self.menus["VPN"]
+            mullvad.set_label("VPN Disconnected")
         if "Connected" in o:
-            mullvad = self.menus["Mullvad"]
-            mullvad.set_label("Mullvad")
+            mullvad = self.menus["VPN"]
+            mullvad.set_label("VPN")
             
         return True
+
+    def sink_cards_info():
+        pactl = "pactl list sinks short".split()
+        sink_inputs = check_output(pactl).decode()
+        cards = sink_inputs.split("\n")
+        for card in cards:
+            try:
+                card_id = card.split("alsa")[0].strip()
+                card_name = card.split("\talsa_output.")[1].split("\t")[0]
+                card_status = card.split("\talsa_output.")[1].split("\t")[3]
+                info = {}
+                info["card_id"] = card_id
+                info["card_name"] = card_name
+                info["card_status"] = card_status
+                return info
+            except: pass
+        return None
     
     def on_volume_value_changed(self,volumebutton,value):
         print(value)
@@ -472,9 +534,9 @@ class Panel(Adw.Application):
     def scroll_event(self, controller, _dx, dy):
         #mouse whell down is 1.0, -1.0 wheel up
         if dy > 0:
-            run("pactl -- set-sink-volume 0 -2%")
+            run("pactl -- set-sink-volume 0 -8%")
         else:
-            run("pactl -- set-sink-volume 0 +2%")
+            run("pactl -- set-sink-volume 0 +8%")
 
     def press(self, gesture, data, x, y):
         Popen("python /home/neo/.config/hypr/scripts/workspaces.py".split())
@@ -507,7 +569,8 @@ class Panel(Adw.Application):
         menu_buttons = {}
         for m in menu_json:
             actions = Gio.Menu()
-            btn = Gtk.MenuButton(label = m)           
+            btn = Gtk.MenuButton(label = m)  
+            btn.add_css_class("NewMenu")         
             menu_buttons[m] = btn
             for item in menu_json[m].values():
                 name = item[0]["name"]
@@ -517,6 +580,10 @@ class Panel(Adw.Application):
                 btn.set_menu_model(actions)         
         return menu_buttons
 
+    def sigkill_activewindow(self, *_):
+        pid = self.instance.get_active_window().pid
+        cmd = "kill -9 {0}".format(pid)
+        run(cmd)
 
     def menu_run_action(self, action, param, something):
         param = param.replace("________", " ")
@@ -541,7 +608,42 @@ class Panel(Adw.Application):
     def copy_to_clipboard(self, *_):
         #lazy to not use wl-copy
         run("wl-copy {0}".format(self.instance.get_active_window().pid))    
-           
+     
+    def sink_input_info(self):
+        pid = self.instance.get_active_window().pid
+        pactl = "pactl list sink-inputs".split()
+        sink_inputs = check_output(pactl).decode()
+        sinklist = sink_inputs.split("Sink Input #")
+        info = {}
+        info["sinklist"] = sinklist
+        return info
+            
+    def toggle_mute_from_sink(self, *_):
+        pid = self.instance.get_active_window().pid
+        info = self.sink_input_info()
+        sinklist = info["sinklist"]
+        for sink in sinklist:
+            if 'application.process.id = "{0}"'.format(pid) in sink:
+                sink = sink.split("\n")[0]
+                run("pactl set-sink-input-mute {0} toggle".format(sink))             
+                   
+    def disk_usage_by_pid(self):
+        pid = self.instance.get_active_window().pid
+        p = psutil.Process(pid)
+        io_counters = p.io_counters() 
+        disk_usage_process = io_counters[2] + io_counters[3] # read_bytes + write_bytes
+        disk_io_counter = psutil.disk_io_counters()
+        disk_total = disk_io_counter[2] + disk_io_counter[3] # read_bytes + write_bytes
+        return int(round(disk_usage_process / (1024**2), 2))
+    
+    def volume_watch(self):
+        with pulsectl.Pulse('volume-increaser') as pulse:
+            for sink in pulse.sink_list():
+                if "running" in str(sink.state):
+                    volume = round(sink.volume.values[0] * 100)
+                    self.tbvol.set_label("Volume: {0}%".format(volume))
+                    self.tbcard.set_label("{0}".format(sink.description))
+    
     def update_title(self):
         try:
             active_window = self.instance.get_active_window()
@@ -554,25 +656,29 @@ class Panel(Adw.Application):
                 process = psutil.Process(pid)
                 psutil_store[pid] = process
 
-            mem_usage = convert_size(psutil_store[pid].memory_info().rss)
+            mem_usage = convert_size(int(psutil_store[pid].memory_info().rss))
             exe = psutil_store[pid].exe()
-            cpu_usage = psutil_store[pid].cpu_percent()
+            cpu_usage = int(psutil_store[pid].cpu_percent())
             if " — " in title:
                 title = title.split(" — ")[0]
             title = "W:{0} - {1}".format(workspace_id,  title)
             self.window_title.set_label(title)
-            self.tbworkspace.set_label("Workspace: {0}".format(workspace_id))
+            self.tbworkspace.set_label("W: {0}".format(workspace_id))
             self.tbpid.set_label("PID: {0}".format(pid))
-            self.tbclass.set_label("Class: {0}".format(wclass))
+            self.tbclass.set_label("{0}".format(wclass))
             self.tbcpusage.set_label("CPU: {0}%".format(cpu_usage))
             self.tbmemusage.set_label("MEM: {0}".format(mem_usage))
             self.tbexe.set_label("Exe: {0}".format(exe))
+            self.tbdiskusage.set_label("Disk: {0}MB".format(self.disk_usage_by_pid()))
+            self.volume_watch()
+
             try:
                 #exclusive try because if it fails, will not set the icon at all
                 wclass = self.panel_cfg["change_icon_title"][wclass]
             except:
                 pass
-            self.icon_title.set_icon_name(wclass)
+            self.window_title.set_icon_name(wclass)
+            self.tbclass.set_icon_name(wclass)
         except:
             pass
         
