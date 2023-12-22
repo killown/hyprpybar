@@ -33,16 +33,19 @@ from hyprpy.utils.signals import Signal
 import psutil
 import math
 import pulsectl
+import toml
+from collections import ChainMap        
+      
 
 
 args = sys.argv
 home = os.path.expanduser('~') 
 config_path = os.path.join(home, ".config/hyprpanel")
-app_list_config = os.path.join(config_path, "app.list")
+dockbar_config = os.path.join(config_path, "dockbar.toml")
 style_css_config = os.path.join(config_path, "style.css")
 workspace_list_config = os.path.join(config_path, "workspace.list")
-panel_config = os.path.join(config_path, "panel.cfg")
-menu_config = os.path.join(config_path, "menu.cfg")
+panel_config = os.path.join(config_path, "panel.toml")
+menu_config = os.path.join(config_path, "menu.toml")
 psutil_store = {}
 
 
@@ -68,31 +71,7 @@ def run(app):
     else:
         Popen(app.split(), start_new_session=True)
 
-def CreateButton(icon, app, Class_Style):
-    box = Gtk.Box(spacing=0)
-    icon = Gtk.Image(icon_name=icon)
-    box.append(icon)
-    box.add_css_class(Class_Style)
-    button = Gtk.Button(child=box)
-    button.add_css_class(Class_Style + "Button")
-    if type(app) == str:
-        button.connect('clicked', lambda x: run(app))
-    else:
-        button.connect('clicked', lambda x: app.popup())
-        
-    return button
 
-def CreatFromAppList(orientation, app_list, class_style):
-    box = Gtk.Box(spacing=0, orientation=orientation)
-    with(open(app_list) as applist):
-          for i in reversed(applist.readlines()):
-              if not ":" in i:
-                  continue
-              app = i.split(":")[0].strip()
-              icon = i.split(":")[1].strip()
-              button = CreateButton(icon, app, class_style)
-              box.append(button)
-    return box
 
 
 def convert_size(size_bytes):
@@ -111,12 +90,9 @@ def buttons_for_background(class_style, icon_name):
     tbtn_title_b.add_css_class(class_style)
     return tbtn_title_b
 
-def CreateGesture(button, button_number, callback):
-        gesture = Gtk.GestureClick.new()
-        gesture.connect("pressed", callback)
-        gesture.connect("released", callback)     
-        gesture.set_button(button_number)
-        button.add_controller(gesture)
+
+        
+     
         
 def CreatePanel(app, anchor, layer, exclusive, width, height, class_style):
     window = Adw.Window(application=app)
@@ -209,40 +185,39 @@ class Panel(Adw.Application):
           
           
         #panel.cfg setup       
-        with open(panel_config) as f:
-            data = f.read()
-            panel_json = json.loads(data)
-            for p in panel_json:
+        with open(panel_config, 'r') as f:
+            panel_toml = toml.load(f)
+            for p in panel_toml:
                     if "bottom" == p:
                         exclusive = True
-                        if panel_json[p]["Exclusive"] == "False":
+                        if panel_toml[p]["Exclusive"] == "False":
                             exclusive = False   
 
-                        position = panel_json[p]["position"]                  
+                        position = panel_toml[p]["position"]                  
                         self.bottom_panel = CreatePanel(app, "BOTTOM", position, exclusive, 32, 0, "BottomBar")
                     if "right" == p:
                         exclusive = True
-                        if panel_json[p]["Exclusive"] == "False":
+                        if panel_toml[p]["Exclusive"] == "False":
                             exclusive = False    
-                        position = panel_json[p]["position"]                
+                        position = panel_toml[p]["position"]                
                         self.right_panel = CreatePanel(app, "RIGHT",  position, exclusive, 0, 32, "RightBar")                   
                     if "left" == p:
                         exclusive = True
-                        if panel_json[p]["Exclusive"] == "False":
+                        if panel_toml[p]["Exclusive"] == "False":
                             exclusive = False   
-                        position = panel_json[p]["position"] 
+                        position = panel_toml[p]["position"] 
                         self.left_panel = CreatePanel(app, "LEFT", position, exclusive, 0, 32, "LeftBar")                
                     if "top" == p:
                         exclusive = True
-                        if panel_json[p]["Exclusive"] == "False":
+                        if panel_toml[p]["Exclusive"] == "False":
                             exclusive = False    
-                        position = panel_json[p]["position"]
+                        position = panel_toml[p]["position"]
                         self.top_panel = CreatePanel(app, "TOP", position, exclusive, self.monitor_width, 24, "TopBar")
                     if "top_background" == p:
                         exclusive = True
-                        if panel_json[p]["Exclusive"] == "False":
+                        if panel_toml[p]["Exclusive"] == "False":
                             exclusive = False    
-                        position = panel_json[p]["position"]
+                        position = panel_toml[p]["position"]
                         self.top_panel_background = CreatePanel(app, "TOP", position, exclusive, self.monitor_width, 48, "TopBarBackground")
                         
                                 
@@ -256,13 +231,13 @@ class Panel(Adw.Application):
         #clock widget
         self.clock_box = Gtk.Box()
         self.clock_box.add_css_class("Clock")
-        self.clock_button = CreateButton("clock", "thunderbird -calendar", "ClockButton")
+        self.clock_button = self.CreateButton("clock", "thunderbird -calendar", "ClockButton")
         self.clock_box.append(self.clock_button)
         
         
         #close, maximize, full screen buttons
-        close_button = CreateButton("window-close-symbolic", "hyprctl dispatch killactive", "close_button")
-        fullscreen_button = CreateButton("gtk-fullscreen", "hyprctl dispatch fullscreen", "fullscreen_button")
+        close_button = self.CreateButton("window-close-symbolic", "hyprctl dispatch killactive", "close_button")
+        fullscreen_button = self.CreateButton("gtk-fullscreen", "hyprctl dispatch fullscreen", "fullscreen_button")
         self.top_panel_box_left.append(close_button)  
         self.top_panel_box_left.append(fullscreen_button)  
         
@@ -285,17 +260,7 @@ class Panel(Adw.Application):
         gesture_left_space = " " * (round(self.monitor_width /  13))
         label_gesture_left = Gtk.Label(label=gesture_left_space)
         label_gesture_left.set_wrap(True)
-        gesture_right_click = Gtk.GestureClick.new()
-        gesture_right_click.connect("pressed", self.press)
-        gesture_right_click.connect("released", self.release)     
-        gesture_right_click.set_button(3)
-        gesture_left_click = Gtk.GestureClick.new()
-        gesture_left_click.connect("pressed", self.press_leftButton)
-        gesture_left_click.connect("released", self.release_leftButton)
-        gesture_left_click.set_button(1)
-        label_gesture_left.set_valign(True)
-        label_gesture_left.add_controller(gesture_right_click)
-        label_gesture_left.add_controller(gesture_left_click)
+
         
            
         # notes label
@@ -317,7 +282,7 @@ class Panel(Adw.Application):
         self.top_panel_box_left.append(self.clock_box)
          
         self.iconbox = Gtk.Box(spacing=0)
-        self.icon_title = CreateButton("kitty", "nwg-drawer", "kitty")
+        self.icon_title = self.CreateButton("kitty", "nwg-drawer", "kitty")
         self.iconbox.append(self.icon_title)
         #self.top_panel_box_left.append(self.iconbox)
         
@@ -332,7 +297,7 @@ class Panel(Adw.Application):
         self.tblabelspace = Gtk.Label(label="    ")
         self.tbworkspace = buttons_for_background("tbworkspace", "workspace-symbolic")
         self.tbpid = buttons_for_background("tbpid", "view-process-tree")  
-        self.tbpid_gesture = CreateGesture(self.tbpid, 1, self.copy_to_clipboard)
+        self.tbpid_gesture = self.CreateGesture(self.tbpid, 1, self.copy_to_clipboard)
         self.tbclass = buttons_for_background("tbclass", "cs-windows-symbolic")     
         self.tbcpusage = buttons_for_background("tbcpusage", "cpu-frequency-indicator") 
         self.tbmemusage = buttons_for_background("tbmemusage","indicator-sensors-memory") 
@@ -358,8 +323,7 @@ class Panel(Adw.Application):
         self.tbbox.append(self.tbmemusage)   
         #self.tbbox.append(self.tbexe)  
         self.tbbox.append(self.tbdiskusage)
-        CreateGesture(self.tbSIGKILL, 1, self.sigkill_activewindow)
-        CreateGesture(self.tbvol, 1, self.toggle_mute_from_sink)
+
         
         #self.tbSIGKILL.connect("clicked", self.sigkill_activewindow)
         self.top_panel_background.set_content(self.tbbox)
@@ -370,23 +334,8 @@ class Panel(Adw.Application):
             gesture_right_space = " " * round(self.monitor_width / 20)
         label_gesture_right = Gtk.Label(label=gesture_right_space)
         label_gesture_right.set_wrap(True)
-        gesture_right_click = Gtk.GestureClick.new()
-        gesture_right_click.connect("pressed", self.press)
-        gesture_right_click.connect("released", self.release)
-        gesture_right_click.set_button(3)
-        gesture_middle_click = Gtk.GestureClick.new()
-        gesture_middle_click.connect("pressed", self.right_side_middle_click)
-        gesture_middle_click.connect("released", self.release)
-        gesture_middle_click.set_button(2)
-        gesture_left_click = Gtk.GestureClick.new()
-        gesture_left_click.connect("pressed", self.press_leftButton)
-        gesture_left_click.connect("released", self.release_leftButton)
-        gesture_left_click.set_button(1)
         
 
-        label_gesture_right.add_controller(gesture_right_click)
-        label_gesture_right.add_controller(gesture_left_click)
-        label_gesture_right.add_controller(gesture_middle_click)
         EventScroll = Gtk.EventControllerScroll.new(Gtk.EventControllerScrollFlags.BOTH_AXES)
         EventScroll.connect("scroll", self.scroll_event)
         label_gesture_right.add_controller(EventScroll)
@@ -397,9 +346,9 @@ class Panel(Adw.Application):
                 
         #create panel buttons
         if default_panel:
-            app_list = CreatFromAppList("horizontal", app_list_config, "BottomBar")
-            workspace_buttons = CreatFromAppList("vertical", workspace_list_config, "RightBar")
-            self.bottom_panel.set_content(app_list)
+            self.dockbar = self.CreatFromAppList("horizontal", dockbar_config, "BottomBar")
+            workspace_buttons = self.CreatFromAppList("vertical", workspace_list_config, "RightBar")
+            self.bottom_panel.set_content(self.dockbar)
             self.top_panel.set_content(self.top_panel_box_full)
             self.right_panel.set_content(workspace_buttons) 
                     
@@ -448,6 +397,19 @@ class Panel(Adw.Application):
             self.bottom_panel.set_content(workspace_buttons)
         if "--bottombar-todo" in args:
             self.bottom_panel.set_content(todo_label_box)
+        
+        #gestures    
+        self.CreateGesture(self.window_title, 1, self.notify_client)
+        self.CreateGesture(self.tbclass, 1, self.dockbar_append)
+        self.CreateGesture(self.tbSIGKILL, 1, self.sigkill_activewindow)
+        self.CreateGesture(self.tbvol, 1, self.toggle_mute_from_sink)
+        self.CreateGesture(label_gesture_left, 1, self.left_gesture_left_click)
+        self.CreateGesture(label_gesture_left, 2, self.left_gesture_middle_click)
+        self.CreateGesture(label_gesture_left, 3, self.left_gesture_right_click)
+        self.CreateGesture(label_gesture_right, 1, self.right_gesture_left_click)
+        self.CreateGesture(label_gesture_right, 2, self.right_gesture_middle_click)
+        self.CreateGesture(label_gesture_right, 3, self.right_gesture_right_click)
+
 
         #show all panels            
         if all_panels_enabled:
@@ -457,9 +419,6 @@ class Panel(Adw.Application):
             self.left_panel.present()
             self.top_panel_background.present()
         
-
-        
-
                 
     def mullvad_status(self):
         o = check_output("mullvad status".split()).decode()
@@ -471,7 +430,47 @@ class Panel(Adw.Application):
             mullvad.set_label("VPN")
             
         return True
+    
+    def dockbar_append(self, *_):
+        w = self.instance.get_active_window()
+        pid = w.pid
+        process = psutil.Process(pid)
+        exec = process.exe()
+        wclass = w.initial_wm_class.lower()
+        try:
+            #some classes does not correspond the icon name, quick fix
+            wclass = self.panel_cfg["change_icon_title"][wclass]
+        except:
+            pass
+        
+        with open(dockbar_config, 'r') as f:
+            config = toml.load(f)
+            
+        new_data={wclass: {
+            "cmd" : exec,
+            "icon" : wclass
+            }
+        }  
+        
+        updated_data = ChainMap(new_data, config)
 
+        with open(dockbar_config, 'w') as f:
+            toml.dump(updated_data, f)
+            
+        button = self.CreateButton(wclass, exec, wclass)
+        self.dockbar.append(button)
+        
+    def dockbar_remove(self, app):      
+        with open(dockbar_config, 'r') as f:
+            config = toml.load(f)
+            
+        del config[app]
+        with open(dockbar_config, 'w') as f:
+            toml.dump(config, f)
+
+        
+        
+        
     def sink_cards_info():
         pactl = "pactl list sinks short".split()
         sink_inputs = check_output(pactl).decode()
@@ -514,8 +513,8 @@ class Panel(Adw.Application):
         return info
         
     def create_widgets(self, orientation, class_style):
-        app_list = CreatFromAppList(orientation, app_list_config, class_style)
-        workspace_buttons = CreatFromAppList(orientation, workspace_list_config, class_style)
+        app_list = self.CreatFromAppList(orientation, app_list_config, class_style)
+        workspace_buttons = self.CreatFromAppList(orientation, workspace_list_config, class_style)
         return app_list, workspace_buttons    
             
     def todo_txt(self):
@@ -528,7 +527,7 @@ class Panel(Adw.Application):
         if event.type == Gdk.EventType.BUTTON_PRESS and event.button == 3:
             return True
     
-    def right_side_middle_click(elf, gesture, data, x, y):
+    def right_side_middle_click(self, gesture, data, x, y):
         Popen("kitty".split())
         
     def scroll_event(self, controller, _dx, dy):
@@ -538,41 +537,43 @@ class Panel(Adw.Application):
         else:
             run("pactl -- set-sink-volume 0 +8%")
 
-    def press(self, gesture, data, x, y):
-        Popen("python /home/neo/.config/hypr/scripts/workspaces.py".split())
-        button = gesture.get_current_button()
-        print(button)
-        return True
-    
-    def release(self, *_):
-        print("released")
-        return True
         
-    def press_leftButton(self, gesture, data, x, y):
-        Popen("hyprctl dispatch fullscreen 1".split())
-        button = gesture.get_current_button()
-        print(button)
-        return True
+    def left_gesture_left_click(self, gesture, data, x, y):
+        cmd = self.panel_cfg["left_side_gestures"]["left_click"]
+        run(cmd)
     
-    def release_leftButton(self, *_):
-        print("released")
-        return True
+    def left_gesture_right_click(self, gesture, data, x, y):
+        cmd = self.panel_cfg["left_side_gestures"]["right_click"]
+        run(cmd)
+    
+    def left_gesture_middle_click(self, gesture, data, x, y):
+        cmd = self.panel_cfg["left_side_gestures"]["middle_click"]
+        run(cmd)
         
-    def dw_click(self,  gesture, data, x, y):
-        button = gesture.get_current_button()
-        print(button)
+    def right_gesture_left_click(self, gesture, data, x, y):
+        cmd = self.panel_cfg["right_side_gestures"]["left_click"]
+        run(cmd)
+    
+    def right_gesture_right_click(self, gesture, data, x, y):
+        cmd = self.panel_cfg["right_side_gestures"]["right_click"]
+        run(cmd)
+    
+    def right_gesture_middle_click(self, gesture, data, x, y):
+        cmd = self.panel_cfg["right_side_gestures"]["middle_click"]
+        run(cmd)
 
+    
+    
     def NewMenu(self):   
-        with open(menu_config) as f:
-            data = f.read()
-        menu_json = json.loads(data)
-        menu_buttons = {}
-        for m in menu_json:
+        with open(menu_config, 'r') as f:
+            menu_toml = toml.load(f)
+            menu_buttons = {}
+        for m in menu_toml:
             actions = Gio.Menu()
             btn = Gtk.MenuButton(label = m)  
             btn.add_css_class("NewMenu")         
             menu_buttons[m] = btn
-            for item in menu_json[m].values():
+            for item in menu_toml[m].values():
                 name = item[0]["name"]
                 action = item[0]["cmd"].replace(" ", "________")
                 actions.append(name, action)
@@ -594,9 +595,8 @@ class Panel(Adw.Application):
         return True
       
     def load_panel_config(self):
-        with open(panel_config) as f:
-            data = f.read()
-        return json.loads(data)
+        with open(panel_config, 'r') as f:
+            return toml.load(f)
     
     def clean_pid_store(self):
         #[optimization]
@@ -604,7 +604,35 @@ class Panel(Adw.Application):
         for pid in psutil_store.keys():
             if pid not in pid_list:
                 del psutil_store[pid]
+
+    def CreateGesture(self, widget, mouse_button, callback):
+            gesture = Gtk.GestureClick.new()
+            gesture.connect("pressed", callback) 
+            gesture.set_button(mouse_button)
+            widget.add_controller(gesture)
         
+    def CreateButton(self, icon_name, app, Class_Style):
+        box = Gtk.Box(spacing=0)
+        icon = Gtk.Image(icon_name=icon_name)
+        box.append(icon)
+        box.add_css_class(Class_Style)
+        button = Gtk.Button(child=box)
+        button.add_css_class(Class_Style + "Button")
+        button.connect("clicked", lambda *_:run(app))
+        self.CreateGesture(button, 3, lambda *_: self.dockbar_remove(icon_name))       
+        return button
+
+    def CreatFromAppList(self, orientation, app_list, class_style):
+        box = Gtk.Box(spacing=0, orientation=orientation)
+        with open(dockbar_config, 'r') as f:
+            config = toml.load(f)
+            for app in config:
+                button = self.CreateButton(config[app]["icon"], config[app]["cmd"], class_style)
+                box.append(button)
+        return box
+
+        
+
     def copy_to_clipboard(self, *_):
         #lazy to not use wl-copy
         run("wl-copy {0}".format(self.instance.get_active_window().pid))    
@@ -625,7 +653,10 @@ class Panel(Adw.Application):
         for sink in sinklist:
             if 'application.process.id = "{0}"'.format(pid) in sink:
                 sink = sink.split("\n")[0]
-                run("pactl set-sink-input-mute {0} toggle".format(sink))             
+                run("pactl set-sink-input-mute {0} toggle".format(sink))     
+                
+    def notify_client(self, *_):
+        run("swaync-client -t")        
                    
     def disk_usage_by_pid(self):
         pid = self.instance.get_active_window().pid
