@@ -3,32 +3,86 @@
   background-color: #14151700;
 }
 
+
+.WindowTitle {
+  font-size: 13px;
+  min-width: 300px;
+  max-width: 300px;
+}
+
+.NewMenu{
+
+}
+
 .RightBar {
   -gtk-icon-size: 28px;
-  background: rgba(90, 90, 90, 0.8);
+  background: rgba(90, 90, 90, 0.2);
 }
 
 .Clock {
   font-size: 18px;
-  background-color: #141517;
+  background-color: #14151700;
 }
 
+.tbcpusage{
+  min-width: 120px;
+}
+
+.tbpid{
+  min-width: 80px;
+}
+
+.tbmemusage{
+  min-width: 140px;
+}
+
+.tbdiskusage{
+  min-width: 120px;
+}
+
+.tbclass{
+  min-width: 100px;
+}
+
+
 .TopBar {
-  font-size: 18px;
+  font-size: 11px;
   color: #ffffff;
-  background-color: #14151707;
+  background-color: #141517ce;
+}
+.top_panel_box_left{
+  min-width: 100px;
+  max-width: 800px;
+}
+
+.top_panel_box_center{
+  min-width: 1000%;
+  max-width: 400px;
+}
+
+.top_panel_box_right{
+  min-width: 0px;
+  max-width: 800px;
+
+}
+
+.TopBarBackground {
+  -gtk-icon-size: 28px;
+  font-size: 15px;
+  color: #d6d6d6;
+  background-color: #0000007a;
 }
 
 .BottomBar {
-  -gtk-icon-size: 48px;
-  background-color: #14151731;
-  background: #14151731;
+  -gtk-icon-size: 42px;
+  background-color: #14151700;
+  background: #14151700;
 }
 
-.launcher:hover {
-  color: rgb(255, 213, 150);
-  background: rgb(255, 213, 150);
-  margin-right: -4px;
+.BottomBarButton:hover {
+  color: rgba(0, 0, 0, 0.925);
+  background: rgba(0, 0, 0, 0.815);
+  margin-top: 4px;
   text-shadow:
     white 0.006em 0.006em 0.007em,
     #9c9c9c 1px 1px 1px,
