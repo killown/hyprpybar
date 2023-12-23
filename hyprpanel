@@ -112,8 +112,8 @@ def CreatePanel(app, anchor, layer, exclusive, width, height, class_style):
     LayerShell.set_margin(window, LayerShell.Edge.BOTTOM, 0)
     LayerShell.set_margin(window, LayerShell.Edge.TOP, 0)
     if class_style == "TopBarBackground":
-        LayerShell.set_margin(window, LayerShell.Edge.BOTTOM, 4)
-        LayerShell.set_margin(window, LayerShell.Edge.TOP, 4)
+        LayerShell.set_margin(window, LayerShell.Edge.BOTTOM, 11)
+        LayerShell.set_margin(window, LayerShell.Edge.TOP, 11)
         
     if(layer == "BOTTOM"):
         LayerShell.set_layer (window, LayerShell.Layer.BOTTOM)
@@ -139,11 +139,15 @@ class Panel(Adw.Application):
         self.top_panel_background = None
         self.top_panel_box_left = Gtk.Box(spacing=10)
         self.top_panel_box_right = Gtk.Box(spacing=6)      
-        self.top_panel_box_center = Gtk.Box(spacing=6)     
-        self.top_panel_box_full = Gtk.Box(spacing=20) 
-        self.top_panel_box_full.prepend(self.top_panel_box_right)
-        self.top_panel_box_full.prepend(self.top_panel_box_center)
-        self.top_panel_box_full.prepend(self.top_panel_box_left)
+        self.top_panel_box_center = Gtk.Box(spacing=6)   
+        self.top_panel_box_full = Gtk.Grid() 
+        self.top_panel_box_full.set_column_homogeneous(True)
+        
+
+        
+        self.top_panel_box_full.attach(self.top_panel_box_left, 1, 0, 1, 2)
+        self.top_panel_box_full.attach_next_to(self.top_panel_box_center, self.top_panel_box_left, Gtk.PositionType.RIGHT, 1, 2)
+        self.top_panel_box_full.attach_next_to(self.top_panel_box_right, self.top_panel_box_center, Gtk.PositionType.RIGHT, 1, 2)
 
         self.panel_cfg = self.load_panel_config()
         self.monitor_width = 0
@@ -218,7 +222,7 @@ class Panel(Adw.Application):
                         if panel_toml[p]["Exclusive"] == "False":
                             exclusive = False    
                         position = panel_toml[p]["position"]
-                        self.top_panel_background = CreatePanel(app, "TOP", position, exclusive, self.monitor_width, 48, "TopBarBackground")
+                        self.top_panel_background = CreatePanel(app, "TOP", position, exclusive, self.monitor_width, 18, "TopBarBackground")
                         
                                 
         
@@ -230,16 +234,19 @@ class Panel(Adw.Application):
         
         #clock widget
         self.clock_box = Gtk.Box()
+        self.clock_box.set_halign(Gtk.Align.CENTER)  
+        self.clock_box.set_hexpand(True)  
+        self.clock_box.set_baseline_position(Gtk.BaselinePosition.CENTER)
         self.clock_box.add_css_class("Clock")
-        self.clock_button = self.CreateButton("clock", "thunderbird -calendar", "ClockButton")
+        self.clock_button = self.CreateButton("gnome-panel-clock-symbolic", "cal", "ClockButton")
         self.clock_box.append(self.clock_button)
         
         
         #close, maximize, full screen buttons
         close_button = self.CreateButton("window-close-symbolic", "hyprctl dispatch killactive", "close_button")
         fullscreen_button = self.CreateButton("gtk-fullscreen", "hyprctl dispatch fullscreen", "fullscreen_button")
-        self.top_panel_box_left.append(close_button)  
-        self.top_panel_box_left.append(fullscreen_button)  
+        #self.top_panel_box_left.append(close_button)  
+        #self.top_panel_box_left.append(fullscreen_button)  
         
         
         
@@ -256,30 +263,30 @@ class Panel(Adw.Application):
         #volumebutton.connect("value-changed",self.on_volume_value_changed)
         #volbox.append(volumebutton)
 
-        #click gestures
-        gesture_left_space = " " * (round(self.monitor_width /  13))
-        label_gesture_left = Gtk.Label(label=gesture_left_space)
-        label_gesture_left.set_wrap(True)
-
-        
+     
            
         # notes label
-        self.todo_label = Gtk.Label()
+        self.todo_button = Adw.ButtonContent()
+        self.todo_button.add_css_class("todo_label")
+        self.todo_button.set_icon_name("todoist-symbolic")
         todo = os.path.join(home, "Documentos", "todo.txt")
         txt = open(todo, "r").readlines()[-1]
-        self.todo_label.set_markup("  Last todo.txt Note: " + txt + "   ")
+        self.todo_button.set_label(txt.strip())
+        
         GLib.timeout_add(600000, self.todo_txt)
 
         self.menus = self.NewMenu()
         #create menus
         for menu in self.menus.values():
-            self.top_panel_box_left.append(menu)       
+            self.top_panel_box_right.append(menu)       
+            self.top_panel_box_right.set_halign(Gtk.Align.END)  
+            self.top_panel_box_right.set_hexpand(True)  
+            self.top_panel_box_right.set_baseline_position(Gtk.BaselinePosition.BOTTOM)
              
 
        
         #gesture space for clicks 
-        self.top_panel_box_left.append(label_gesture_left)
-        self.top_panel_box_left.append(self.clock_box)
+        self.top_panel_box_center.append(self.clock_box)
          
         self.iconbox = Gtk.Box(spacing=0)
         self.icon_title = self.CreateButton("kitty", "nwg-drawer", "kitty")
@@ -289,6 +296,7 @@ class Panel(Adw.Application):
         #setup window title
         self.window_title = Adw.ButtonContent()
         self.top_panel_box_left.append(self.window_title)
+
         self.window_title.add_css_class("WindowTitle")
         #self.window_title.connect("clicked", lambda x: run("swaync-client -t"))
         
@@ -323,25 +331,18 @@ class Panel(Adw.Application):
         self.tbbox.append(self.tbmemusage)   
         #self.tbbox.append(self.tbexe)  
         self.tbbox.append(self.tbdiskusage)
+        self.tbbox.append(self.todo_button)
 
         
         #self.tbSIGKILL.connect("clicked", self.sigkill_activewindow)
         self.top_panel_background.set_content(self.tbbox)
 
-        #gestures right side
-        gesture_right_space = " " * round(self.monitor_width / 10)
-        if self.monitor_width < 2000:
-            gesture_right_space = " " * round(self.monitor_width / 20)
-        label_gesture_right = Gtk.Label(label=gesture_right_space)
-        label_gesture_right.set_wrap(True)
-        
+
 
         EventScroll = Gtk.EventControllerScroll.new(Gtk.EventControllerScrollFlags.BOTH_AXES)
         EventScroll.connect("scroll", self.scroll_event)
-        label_gesture_right.add_controller(EventScroll)
-        self.top_panel_box_right.append(label_gesture_right)
-
-        
+        self.top_panel_box_full.add_controller(EventScroll)
+       
 
                 
         #create panel buttons
@@ -398,17 +399,23 @@ class Panel(Adw.Application):
         if "--bottombar-todo" in args:
             self.bottom_panel.set_content(todo_label_box)
         
-        #gestures    
-        self.CreateGesture(self.window_title, 1, self.notify_client)
+        #gestures   
+        
+        self.CreateGesture(self.todo_button , 1, self.take_note_app)
+        self.CreateGesture(self.clock_box, 1, self.notify_client)
+        self.CreateGesture(self.window_title, 3, self.left_gesture_right_click)
         self.CreateGesture(self.tbclass, 1, self.dockbar_append)
         self.CreateGesture(self.tbSIGKILL, 1, self.sigkill_activewindow)
         self.CreateGesture(self.tbvol, 1, self.toggle_mute_from_sink)
-        self.CreateGesture(label_gesture_left, 1, self.left_gesture_left_click)
-        self.CreateGesture(label_gesture_left, 2, self.left_gesture_middle_click)
-        self.CreateGesture(label_gesture_left, 3, self.left_gesture_right_click)
-        self.CreateGesture(label_gesture_right, 1, self.right_gesture_left_click)
-        self.CreateGesture(label_gesture_right, 2, self.right_gesture_middle_click)
-        self.CreateGesture(label_gesture_right, 3, self.right_gesture_right_click)
+        self.CreateGesture(self.top_panel_box_left, 1, self.left_gesture_left_click)
+        self.CreateGesture(self.top_panel_box_left, 2, self.left_gesture_middle_click)
+        self.CreateGesture(self.top_panel_box_left, 3, self.left_gesture_right_click)
+        #self.CreateGesture(self.top_panel_box_center, 1, self.left_gesture_left_click)
+        self.CreateGesture(self.top_panel_box_center, 2, self.left_gesture_middle_click)
+        self.CreateGesture(self.top_panel_box_center, 3, self.left_gesture_right_click)
+        #self.CreateGesture(self.top_panel_box_right, 1, self.right_gesture_left_click)
+        self.CreateGesture(self.top_panel_box_right, 2, self.left_gesture_middle_click)
+        self.CreateGesture(self.top_panel_box_right, 3, self.left_gesture_right_click)
 
 
         #show all panels            
@@ -430,6 +437,12 @@ class Panel(Adw.Application):
             mullvad.set_label("VPN")
             
         return True
+    
+    def take_note_app(self, *_):
+        with open(panel_config, 'r') as f:
+            config = toml.load(f)
+        run(config["take_note_app"]["cmd"])
+        
     
     def dockbar_append(self, *_):
         w = self.instance.get_active_window()
@@ -520,7 +533,7 @@ class Panel(Adw.Application):
     def todo_txt(self):
         todo = os.path.join(home, "Documentos", "todo.txt")
         txt = open(todo, "r").readlines()[-1]
-        self.todo_label.set_markup("  Last todo.txt Note: " + txt + "   ")
+        self.todo_button.set_label(txt.strip())
         return True    
     
     def on_button_press_event(self, widget, event):
@@ -569,6 +582,8 @@ class Panel(Adw.Application):
             menu_toml = toml.load(f)
             menu_buttons = {}
         for m in menu_toml:
+            if m == "icons":
+                continue
             actions = Gio.Menu()
             btn = Gtk.MenuButton(label = m)  
             btn.add_css_class("NewMenu")         
@@ -578,7 +593,8 @@ class Panel(Adw.Application):
                 action = item[0]["cmd"].replace(" ", "________")
                 actions.append(name, action)
                 btn.install_action(action, None, self.menu_run_action)
-                btn.set_menu_model(actions)         
+                btn.set_menu_model(actions)     
+                btn.set_icon_name(menu_toml["icons"][m])    
         return menu_buttons
 
     def sigkill_activewindow(self, *_):
@@ -616,14 +632,18 @@ class Panel(Adw.Application):
         icon = Gtk.Image(icon_name=icon_name)
         box.append(icon)
         box.add_css_class(Class_Style)
-        button = Gtk.Button(child=box)
+        button = Adw.ButtonContent()
+        button.set_icon_name(icon_name)
         button.add_css_class(Class_Style + "Button")
-        button.connect("clicked", lambda *_:run(app))
+        if app == "NULL":
+            button.set_sensitive(False)
+            return button
+        self.CreateGesture(button, 1, lambda *_:run(app))
         self.CreateGesture(button, 3, lambda *_: self.dockbar_remove(icon_name))       
         return button
 
     def CreatFromAppList(self, orientation, app_list, class_style):
-        box = Gtk.Box(spacing=0, orientation=orientation)
+        box = Gtk.Box(spacing=10, orientation=orientation)
         with open(app_list, 'r') as f:
             config = toml.load(f)
             for app in config:
