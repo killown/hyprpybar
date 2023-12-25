@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 import os
+from pathlib import Path
 os.environ["GI_TYPELIB_PATH"] = "/usr/include/hyprpanel/src"
 
 from ctypes import CDLL
 CDLL('libgtk4-layer-shell.so')
 from subprocess import Popen
-from subprocess import check_output
+from subprocess import check_output, call
 
 import gi
 gi.require_version("Gtk", "4.0")
@@ -35,7 +36,7 @@ import math
 import pulsectl
 import toml
 from collections import ChainMap        
-      
+
 
 
 args = sys.argv
@@ -46,6 +47,7 @@ style_css_config = os.path.join(config_path, "style.css")
 workspace_list_config = os.path.join(config_path, "workspacebar.toml")
 panel_config = os.path.join(config_path, "panel.toml")
 menu_config = os.path.join(config_path, "menu.toml")
+window_notes_config =  os.path.join(config_path, "window-config.toml")
 psutil_store = {}
 
 
@@ -61,15 +63,6 @@ def window_changed(sender, **kwargs):
         pass
      
 
-def run(app):
-    if ";" in app:
-        for line in app.split(";"):
-            try:
-                Popen(line.split(), start_new_session=True)
-            except:
-                pass
-    else:
-        Popen(app.split(), start_new_session=True)
 
 
 
@@ -241,6 +234,20 @@ class Panel(Adw.Application):
         self.clock_button = self.CreateButton("gnome-panel-clock-symbolic", "cal", "ClockButton")
         self.clock_box.append(self.clock_button)
         
+        #clock widget
+        self.clock_box1= Gtk.Box()
+        self.clock_box1.set_halign(Gtk.Align.CENTER)  
+        self.clock_box1.set_hexpand(True)  
+
+        #self.clock_button1 = Gtk.Button()
+        #self.clock_box1.append(self.clock_button1)
+        #self.clock_box.append(self.clock_box1)
+        #ww = Gtk.Dialog()
+        #self.popover = Gtk.Popover()
+        #self.popover.set_parent(ww)
+        #self.CreateGesture(self.clock_button1, 1, self.myapprun)
+        
+        
         
         #close, maximize, full screen buttons
         close_button = self.CreateButton("window-close-symbolic", "hyprctl dispatch killactive", "close_button")
@@ -347,8 +354,8 @@ class Panel(Adw.Application):
                 
         #create panel buttons
         if default_panel:
-            self.dockbar = self.CreatFromAppList("horizontal", dockbar_config, "BottomBar")
-            workspace_buttons = self.CreatFromAppList("vertical", workspace_list_config, "RightBar")
+            self.dockbar = self.CreateFromAppList("horizontal", dockbar_config, "BottomBar")
+            workspace_buttons = self.CreateFromAppList("vertical", workspace_list_config, "RightBar")
             self.bottom_panel.set_content(self.dockbar)
             self.top_panel.set_content(self.top_panel_box_full)
             self.right_panel.set_content(workspace_buttons) 
@@ -405,6 +412,8 @@ class Panel(Adw.Application):
         self.CreateGesture(self.clock_box, 1, self.notify_client)
         self.CreateGesture(self.window_title, 3, self.left_gesture_right_click)
         self.CreateGesture(self.tbclass, 1, self.dockbar_append)
+        self.CreateGesture(self.tbclass, 3, self.window_notes)
+
         self.CreateGesture(self.tbSIGKILL, 1, self.sigkill_activewindow)
         self.CreateGesture(self.tbvol, 1, self.toggle_mute_from_sink)
         self.CreateGesture(self.top_panel_box_left, 1, self.left_gesture_left_click)
@@ -425,6 +434,7 @@ class Panel(Adw.Application):
             self.bottom_panel.present()
             self.left_panel.present()
             self.top_panel_background.present()
+      
         
                 
     def mullvad_status(self):
@@ -441,7 +451,7 @@ class Panel(Adw.Application):
     def take_note_app(self, *_):
         with open(panel_config, 'r') as f:
             config = toml.load(f)
-        run(config["take_note_app"]["cmd"])
+        self.run_app(config["take_note_app"]["cmd"])
         
     
     def dockbar_append(self, *_):
@@ -523,11 +533,12 @@ class Panel(Adw.Application):
     def HyprInfo(self):
         info = {}
         info["window_class"] = self.instance.get_active_window().initial_wm_class
+        info["address"] = self.instance.get_active_window().address
         return info
         
     def create_widgets(self, orientation, class_style):
-        app_list = self.CreatFromAppList(orientation, app_list_config, class_style)
-        workspace_buttons = self.CreatFromAppList(orientation, workspace_list_config, class_style)
+        app_list = self.CreateFromAppList(orientation, app_list_config, class_style)
+        workspace_buttons = self.CreateFromAppList(orientation, workspace_list_config, class_style)
         return app_list, workspace_buttons    
             
     def todo_txt(self):
@@ -546,37 +557,35 @@ class Panel(Adw.Application):
     def scroll_event(self, controller, _dx, dy):
         #mouse whell down is 1.0, -1.0 wheel up
         if dy > 0:
-            run("pactl -- set-sink-volume 0 -8%")
+            self.run_app("pactl -- set-sink-volume 0 -8%")
         else:
-            run("pactl -- set-sink-volume 0 +8%")
+            self.run_app("pactl -- set-sink-volume 0 +8%")
 
         
     def left_gesture_left_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["left_side_gestures"]["left_click"]
-        run(cmd)
+        self.run_app(cmd)
     
     def left_gesture_right_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["left_side_gestures"]["right_click"]
-        run(cmd)
+        self.run_app(cmd)
     
     def left_gesture_middle_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["left_side_gestures"]["middle_click"]
-        run(cmd)
+        self.run_app(cmd)
         
     def right_gesture_left_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["right_side_gestures"]["left_click"]
-        run(cmd)
+        self.run_app(cmd)
     
     def right_gesture_right_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["right_side_gestures"]["right_click"]
-        run(cmd)
+        self.run_app(cmd)
     
     def right_gesture_middle_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["right_side_gestures"]["middle_click"]
-        run(cmd)
-
-    
-    
+        self.run_app(cmd)
+  
     def NewMenu(self):   
         with open(menu_config, 'r') as f:
             menu_toml = toml.load(f)
@@ -600,11 +609,11 @@ class Panel(Adw.Application):
     def sigkill_activewindow(self, *_):
         pid = self.instance.get_active_window().pid
         cmd = "kill -9 {0}".format(pid)
-        run(cmd)
+        self.run_app(cmd)
 
     def menu_run_action(self, action, param, something):
         param = param.replace("________", " ")
-        run(param)
+        self.run_app(param)
         
     def update_clock(self):
         self.clock_button.set_label(datetime.now().strftime('%d %a %H:%M'))
@@ -638,11 +647,11 @@ class Panel(Adw.Application):
         if app == "NULL":
             button.set_sensitive(False)
             return button
-        self.CreateGesture(button, 1, lambda *_:run(app))
+        self.CreateGesture(button, 1, lambda *_:self.run_app(app))
         self.CreateGesture(button, 3, lambda *_: self.dockbar_remove(icon_name))       
         return button
 
-    def CreatFromAppList(self, orientation, app_list, class_style):
+    def CreateFromAppList(self, orientation, app_list, class_style):
         box = Gtk.Box(spacing=10, orientation=orientation)
         with open(app_list, 'r') as f:
             config = toml.load(f)
@@ -654,7 +663,7 @@ class Panel(Adw.Application):
         
     def copy_to_clipboard(self, *_):
         #lazy to not use wl-copy
-        run("wl-copy {0}".format(self.instance.get_active_window().pid))    
+        self.run_app("wl-copy {0}".format(self.instance.get_active_window().pid))    
      
     def sink_input_info(self):
         pid = self.instance.get_active_window().pid
@@ -672,10 +681,10 @@ class Panel(Adw.Application):
         for sink in sinklist:
             if 'application.process.id = "{0}"'.format(pid) in sink:
                 sink = sink.split("\n")[0]
-                run("pactl set-sink-input-mute {0} toggle".format(sink))     
+                self.run_app("pactl set-sink-input-mute {0} toggle".format(sink))     
                 
     def notify_client(self, *_):
-        run("swaync-client -t")        
+        self.run_app("swaync-client -t")        
                    
     def disk_usage_by_pid(self):
         pid = self.instance.get_active_window().pid
@@ -694,12 +703,78 @@ class Panel(Adw.Application):
                     self.tbvol.set_label("Volume: {0}%".format(volume))
                     self.tbcard.set_label("{0}".format(sink.description))
     
+    def myapprun(self, *_):
+        m = MyApp(application_id="com.github.yucefsourani.myapplicationexample",flags= Gio.ApplicationFlags.FLAGS_NONE)
+        m.run(None)
+        m.destroy()
+    
+  
+    def run_app(self, cmd):
+        if ";" in cmd:
+            for line in cmd.split(";"):
+                try:
+                    Popen(line.split(), start_new_session=True)
+                except:
+                    pass
+        else:
+            Popen(cmd.split(), start_new_session=True)   
+            
+    def dock_launcher(self, cmd):
+        processes = psutil.process_iter()
+        for process in processes:
+            if process.name() in cmd or cmd in process.name():
+                call("hyprctl dispatch workspace name:{0}".format(cmd).split())
+                return
+        
+        if ";" in cmd:
+            for line in cmd.split(";"):
+                try:
+                    call("hyprctl dispatch workspace name:{0}".format(cmd).split())
+                    Popen(line.split(), start_new_session=True)
+
+                except:
+                    pass
+        else:
+            call("hyprctl dispatch workspace name:{0}".format(cmd).split())
+            Popen(cmd.split(), start_new_session=True)   
+
+      
+    def window_notes(self, *_):
+        aw = self.instance.get_active_window()
+        initial_title = aw.initial_title.lower()
+        wm_class = aw.initial_wm_class.lower()
+        title = aw.title
+
+        if initial_title == "zsh":
+            wm_class = title.split()[0]
+
+        with open(window_notes_config, 'r') as f:
+            wtoml = toml.load(f)
+        
+        new_data={wm_class: {
+            "initial_title" : initial_title.lower(),
+            "title" : title.lower()
+            }
+        }  
+        updated_data = ChainMap(new_data, wtoml)
+        
+        with open(window_notes_config, 'w') as f:
+            toml.dump(updated_data, f)
+
+        filepath =  "/home/neo/Notes/{0}.md".format(wm_class)
+        cmd = "marktext {0}".format(filepath)
+        if not os.path.isfile(filepath):
+            Path(filepath).touch()
+        print(cmd)
+        self.run_app(cmd)
+
     def update_title(self):
         try:
             active_window = self.instance.get_active_window()
+            initial_title = active_window.initial_title
             title = active_window.title
             title = title[0:48]
-            workspace_id = active_window.workspace.id
+            workspace_id = active_window.workspace_id
             pid = active_window.pid
             wclass = active_window.initial_wm_class.lower()
             if not pid in psutil_store.keys():
@@ -711,7 +786,7 @@ class Panel(Adw.Application):
             cpu_usage = int(psutil_store[pid].cpu_percent())
             if " — " in title:
                 title = title.split(" — ")[0]
-            title = "W:{0} - {1}".format(workspace_id,  title)
+            title = "{0}".format(title)
             self.window_title.set_label(title)
             self.tbworkspace.set_label("W: {0}".format(workspace_id))
             self.tbpid.set_label("PID: {0}".format(pid))
@@ -731,6 +806,13 @@ class Panel(Adw.Application):
             self.tbclass.set_icon_name(wclass)
         except:
             pass
+
+        
+        if initial_title == "zsh":
+            wclass = title.split()[0]
+            self.tbclass.set_label("{0}".format(wclass))
+
+
         
         return True
 
