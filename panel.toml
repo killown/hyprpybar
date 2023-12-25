@@ -32,3 +32,6 @@ middle_click = "kitty"
 right_click = "python /home/neo/.config/hypr/scripts/workspaces.py"
 left_click = "hyprctl dispatch fullscreen 1"
 middle_click = "kitty"
+
+[take_note_app]
+cmd = "sleek"

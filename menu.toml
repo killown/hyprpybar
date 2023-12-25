@@ -1,59 +1,32 @@
-[[Scripts.item_1]]
-cmd = "firefox"
-name = "firefox"
+[icons]
+"System" = "system-shutdown-alt3"
 
-[[Scripts.item_2]]
-cmd = "/home/neo/Scripts/disavow-check.py"
-name = "Disavow Check"
-
-[[Sys.item_1]]
+[[System.item_1]]
 cmd = "hyprctl dispatch exit"
 name = "Logout"
 
-[[Sys.item_2]]
+[[System.item_2]]
 cmd = "reboot"
-name = "Reboot"
+name = "Reiniciar"
 
-[[Sys.item_3]]
+
+[[System.shutdown_now]]
+cmd = "shutdown -h now"
+name = "Desligar PC"
+
+
+[[System.item_3]]
 cmd = "hyprctl keyword monitor DP-1, disable;hyprpanel"
-name = "Turn OFF monitor right"
+name = "Desligar monitor da direita"
 
-[[Sys.item_4]]
+[[System.item_4]]
 cmd = "hyprctl keyword monitor DP-2, disable;hyprpanel"
-name = "Turn OFF monitor left"
+name = "Desligar Monitor da esquerda"
 
-[[Sys.item_5]]
+[[System.item_5]]
 cmd = "hyprctl reload; killall -9 hyprpanel;hyprpanel"
-name = "Turn ON monitors"
+name = "Religar Monitores"
 
-[[Sys.item_6]]
+[[System.item_6]]
 cmd = "killall -9 python3 /usr/bin/hyprpanel"
-name = "Close Hyprpanel"
-
-[[Audio.item_1]]
-cmd = "pactl set-default-sink alsa_output.usb-3142_fifine_Headset-00.analog-stereo"
-name = "Fifine Headset"
-
-[[Audio.item_2]]
-cmd = "pactl set-default-sink alsa_output.pci-0000_0c_00.4.analog-stereo"
-name = "Analog Stereo PC"
-
-[[Audio.item_3]]
-cmd = "pavucontrol"
-name = "Audio Control"
-
-[[VPN.item_1]]
-cmd = "/home/neo/Scripts/hyprland/mullvad-random-br.py"
-name = "Change Server"
-
-[[VPN.item_2]]
-cmd = "/home/neo/Scripts/hyprland/mullvad-status.py"
-name = "Connection Status"
-
-[[VPN.item_3]]
-cmd = "/home/neo/Scripts/hyprland/mullvad-disconnect.py"
-name = "Mullvad Disconnect"
-
-[[VPN.item_4]]
-cmd = "/home/neo/Scripts/hyprland/mullvad-connect.py"
-name = "Mullvad Connect"
+name = "Fechar Hyprpanel"

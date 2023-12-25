@@ -1,3 +1,8 @@
+[separator]
+cmd = "NULL"
+icon = "nemo-vertical-layout-wide-symbolic"
+
+
 [firefox-developer-edition]
 cmd = "/usr/lib/firefox-developer-edition/firefox"
 icon = "firefox-developer-edition"
@@ -7,7 +12,7 @@ cmd = "mullvad-exclude gtk-launch msedge-dinihlfpipipfkcmaaepepiogdhoflhb-Defaul
 icon = "msedge-dinihlfpipipfkcmaaepepiogdhoflhb-Default"
 
 [prime]
-cmd = "mullvad-exclude gtk-launch chrome-nbkkgiflglejhikcliinbkikeklbpppp-Default"
+cmd = "mullvad-exclude gtk-launch msedge-kmifndnklcjngpikicihnhfmmfhpkcii-Default.desktop"
 icon = "chrome-nbkkgiflglejhikcliinbkikeklbpppp-Default"
 
 [disney]
@@ -45,3 +50,11 @@ icon = "thunar"
 [gnome-terminal]
 cmd = "gnome-terminal"
 icon = "gnome-terminal"
+
+[chromium]
+cmd = "/usr/lib/chromium/chromium"
+icon = "chromium"
+
+[kitty]
+cmd = "/usr/bin/kitty"
+icon = "kitty"
