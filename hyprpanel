@@ -51,6 +51,7 @@ workspace_list_config = os.path.join(config_path, "workspacebar.toml")
 panel_config = os.path.join(config_path, "panel.toml")
 menu_config = os.path.join(config_path, "menu.toml")
 window_notes_config = os.path.join(config_path, "window-config.toml")
+cmd_config = os.path.join(config_path, "cmd.toml")
 psutil_store = {}
 
 
@@ -107,7 +108,7 @@ def CreatePanel(app, anchor, layer, exclusive, width, height, class_style):
         LayerShell.set_layer(window, LayerShell.Layer.BOTTOM)
     if layer == "TOP":
         LayerShell.set_layer(window, LayerShell.Layer.TOP)
-    if exclusive == True:
+    if exclusive:
         LayerShell.auto_exclusive_zone_enable(window)
 
     return window
@@ -123,11 +124,20 @@ class Panel(Adw.Application):
         self.top_panel = None
         self.top_panel_background = None
         self.top_panel_box_left = Gtk.Box(spacing=10)
+        self.top_panel_box_systray = Gtk.Box(spacing=0)
         self.top_panel_box_right = Gtk.Box(spacing=6)
+        self.top_panel_grid_right = Gtk.Grid()
+        self.top_panel_grid_right.attach(self.top_panel_box_right, 1, 0, 1, 2)
+        self.top_panel_grid_right.attach_next_to(
+            self.top_panel_box_systray,
+            self.top_panel_box_right,
+            Gtk.PositionType.RIGHT,
+            1,
+            2,
+        )
         self.top_panel_box_center = Gtk.Box(spacing=6)
         self.top_panel_box_full = Gtk.Grid()
         self.top_panel_box_full.set_column_homogeneous(True)
-
         self.top_panel_box_full.attach(self.top_panel_box_left, 1, 0, 1, 2)
         self.top_panel_box_full.attach_next_to(
             self.top_panel_box_center,
@@ -137,11 +147,11 @@ class Panel(Adw.Application):
             2,
         )
         self.top_panel_box_full.attach_next_to(
-            self.top_panel_box_right,
+            self.top_panel_grid_right,
             self.top_panel_box_center,
             Gtk.PositionType.RIGHT,
             1,
-            2,
+            3,
         )
 
         self.panel_cfg = self.load_panel_config()
@@ -149,12 +159,13 @@ class Panel(Adw.Application):
         self.monitor_height = 0
         self.toggle_mute = {}
         self.volume = 0
+        self.clock_box = Gtk.Box()
 
     def on_activate(self, app):
         self.top_panel_box_left.add_css_class("top_panel_box_left")
         self.top_panel_box_right.add_css_class("top_panel_box_right")
+        self.top_panel_box_systray.add_css_class("top_panel_box_systray")
         self.top_panel_box_center.add_css_class("top_panel_box_center")
-        self.top_panel_box_center.props.halign = Gtk.Align.FILL
         self.top_panel_box_full.add_css_class("top_panel_box_full")
         panel_on_top = "TOP"
         exclusive = True
@@ -162,7 +173,8 @@ class Panel(Adw.Application):
         self.instance = self.HyprlandInstance()
         default_panel = True
 
-        settings_window = Adw.PreferencesWindow()
+        # start cmd output session, cmd.toml
+        self.cmd_output()
 
         # get monitor info and set the width, height for the panel
         monitor_info = self.get_monitor_info()
@@ -245,7 +257,6 @@ class Panel(Adw.Application):
         )
 
         # clock widget
-        self.clock_box = Gtk.Box()
         self.clock_box.set_halign(Gtk.Align.CENTER)
         self.clock_box.set_hexpand(True)
         self.clock_box.set_baseline_position(Gtk.BaselinePosition.CENTER)
@@ -253,6 +264,8 @@ class Panel(Adw.Application):
         self.clock_button = self.CreateButton(
             "gnome-panel-clock-symbolic", "cal", "ClockButton"
         )
+        self.clock_button.set_halign(Gtk.Align.CENTER)
+        self.clock_button.set_hexpand(True)
         self.clock_box.append(self.clock_button)
 
         # clock widget
@@ -267,6 +280,19 @@ class Panel(Adw.Application):
         # self.popover = Gtk.Popover()
         # self.popover.set_parent(ww)
         # self.CreateGesture(self.clock_button1, 1, self.myapprun)
+
+        self.cf_box = Gtk.Box()
+        self.close_button = self.CreateButton(
+            "close-symbolic", "hyprctl dispatch killactive", "cf_button"
+        )
+        self.fullscreen_button = self.CreateButton(
+            "gtk-fullscreen", "hyprctl dispatch fullscreen", "cf_button"
+        )
+        self.cf_box.append(self.close_button)
+        self.cf_box.append(self.fullscreen_button)
+        self.cf_box.add_css_class("cf_box")
+        self.top_panel_box_left.append(self.cf_box)
+
 
         # close, maximize, full screen buttons
         close_button = self.CreateButton(
@@ -292,18 +318,24 @@ class Panel(Adw.Application):
         self.todo_button.add_css_class("todo_label")
         self.todo_button.set_icon_name("todoist-symbolic")
         todo = os.path.join(home, "Documentos", "todo.txt")
-        txt = open(todo, "r").readlines()[-1]
-        self.todo_button.set_label(txt.strip())
 
-        GLib.timeout_add(600000, self.todo_txt)
+        try:
+            txt = open(todo, "r").readlines()[-1]
+            self.todo_button.set_label(txt.strip())
+            GLib.timeout_add(600000, self.todo_txt)
+        except IndexError:
+            print("todo.txt is empity or does not exist")
 
+        self.top_panel_box_right.set_halign(Gtk.Align.FILL)
+        self.top_panel_box_right.set_homogeneous(True)
+        self.top_panel_box_right.set_hexpand(True)
         self.menus = self.NewMenu()
         # create menus
         for menu in self.menus.values():
-            self.top_panel_box_right.append(menu)
-            self.top_panel_box_right.set_halign(Gtk.Align.END)
-            self.top_panel_box_right.set_hexpand(True)
-            self.top_panel_box_right.set_baseline_position(Gtk.BaselinePosition.BOTTOM)
+            self.top_panel_box_systray.append(menu)
+            menu.add_css_class("systray")
+            self.top_panel_box_systray.set_halign(Gtk.Align.END)
+            self.top_panel_box_systray.set_hexpand(True)
 
         # gesture space for clicks
         self.top_panel_box_center.append(self.clock_box)
@@ -391,18 +423,18 @@ class Panel(Adw.Application):
         if "--topbar-workspaces" in args:
             self.top_panel.set_content(workspace_buttons)
         if "--topbar-todo" in args:
-            self.top_panel.set_content(todo_label_box)
+            self.top_panel.set_content(self.todo_label_box)
 
         if [i for i in args if "rightbar" in i]:
             app_list, workspace_buttons = self.create_widgets("vertical", "RightBar")
             all_panels_enabled = False
-            right_panel.present()
+            self.right_panel.present()
         if "--rightbar-apps" in args:
             self.right_panel.set_content(app_list)
         if "--rightbar-workspaces" in args:
             self.right_panel.set_content(workspace_buttons)
         if "--rightbar-todo" in args:
-            self.right_panel.set_content(todo_label_box)
+            self.right_panel.set_content(self.todo_label_box)
 
         if [i for i in args if "leftbar" in i]:
             app_list, workspace_buttons = self.create_widgets("vertical", "LeftBar")
@@ -413,7 +445,7 @@ class Panel(Adw.Application):
         if "--leftbar-workspaces" in args:
             self.left_panel.set_content(workspace_buttons)
         if "--leftbar-todo" in args:
-            self.left_panel.set_content(todo_label_box)
+            self.left_panel.set_content(self.todo_label_box)
 
         if [i for i in args if "bottombar" in i]:
             app_list, workspace_buttons = self.create_widgets("horizontal", "BottomBar")
@@ -424,7 +456,7 @@ class Panel(Adw.Application):
         if "--bottombar-workspaces" in args:
             self.bottom_panel.set_content(workspace_buttons)
         if "--bottombar-todo" in args:
-            self.bottom_panel.set_content(todo_label_box)
+            self.bottom_panel.set_content(self.todo_label_box)
 
         # gestures
 
@@ -433,16 +465,19 @@ class Panel(Adw.Application):
         self.CreateGesture(self.window_title, 3, self.left_gesture_right_click)
         self.CreateGesture(self.tbclass, 1, self.dockbar_append)
         self.CreateGesture(self.tbclass, 3, self.window_notes)
-
         self.CreateGesture(self.tbSIGKILL, 1, self.sigkill_activewindow)
         self.CreateGesture(self.tbvol, 1, self.toggle_mute_from_sink)
         self.CreateGesture(self.top_panel_box_left, 1, self.left_gesture_left_click)
         self.CreateGesture(self.top_panel_box_left, 2, self.left_gesture_middle_click)
         self.CreateGesture(self.top_panel_box_left, 3, self.left_gesture_right_click)
-        # self.CreateGesture(self.top_panel_box_center, 1, self.left_gesture_left_click)
-        self.CreateGesture(self.top_panel_box_center, 2, self.left_gesture_middle_click)
-        self.CreateGesture(self.top_panel_box_center, 3, self.left_gesture_right_click)
-        # self.CreateGesture(self.top_panel_box_right, 1, self.right_gesture_left_click)
+        # self.CreateGesture(self.top_panel_box_center, 1, self.center_gesture_left_click)
+        self.CreateGesture(
+            self.top_panel_box_center, 2, self.center_gesture_middle_click
+        )
+        self.CreateGesture(
+            self.top_panel_box_center, 3, self.center_gesture_right_click
+        )
+        self.CreateGesture(self.top_panel_box_right, 1, self.right_gesture_left_click)
         self.CreateGesture(self.top_panel_box_right, 2, self.left_gesture_middle_click)
         self.CreateGesture(self.top_panel_box_right, 3, self.left_gesture_right_click)
 
@@ -472,34 +507,37 @@ class Panel(Adw.Application):
 
     def dockbar_append(self, *_):
         w = self.instance.get_active_window()
-        pid = w.pid
-        process = psutil.Process(pid)
-        exec = process.exe()
-        wclass = w.initial_wm_class.lower()
+        initial_title = w.initial_title.lower()
+        icon = initial_title
+        cmd = initial_title
+        if initial_title == "zsh" or initial_title == "bash":
+            title = w.title.split(" ")[0]
+            cmd = "kitty --hold {0}".format(title)
+            icon = title
         try:
             # some classes does not correspond the icon name, quick fix
-            wclass = self.panel_cfg["change_icon_title"][wclass]
+            icon = self.panel_cfg["change_icon_title"][icon]
         except:
             pass
 
         with open(dockbar_config, "r") as f:
             config = toml.load(f)
 
-        new_data = {wclass: {"cmd": exec, "icon": wclass}}
+        new_data = {initial_title: {"cmd": cmd, "icon": icon}}
 
         updated_data = ChainMap(new_data, config)
 
         with open(dockbar_config, "w") as f:
             toml.dump(updated_data, f)
 
-        button = self.CreateButton(wclass, exec, wclass)
+        button = self.CreateButton(icon, cmd, initial_title)
         self.dockbar.append(button)
 
-    def dockbar_remove(self, app):
+    def dockbar_remove(self, cmd):
         with open(dockbar_config, "r") as f:
             config = toml.load(f)
 
-        del config[app]
+        del config[cmd]
         with open(dockbar_config, "w") as f:
             toml.dump(config, f)
 
@@ -545,7 +583,7 @@ class Panel(Adw.Application):
         return info
 
     def create_widgets(self, orientation, class_style):
-        app_list = self.CreateFromAppList(orientation, app_list_config, class_style)
+        app_list = self.CreateFromAppList(orientation, app_list, class_style)
         workspace_buttons = self.CreateFromAppList(
             orientation, workspace_list_config, class_style
         )
@@ -573,27 +611,39 @@ class Panel(Adw.Application):
 
     def left_gesture_left_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["left_side_gestures"]["left_click"]
-        self.run_app(cmd)
+        self.run_app(cmd, True)
 
     def left_gesture_right_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["left_side_gestures"]["right_click"]
-        self.run_app(cmd)
+        self.run_app(cmd, True)
 
     def left_gesture_middle_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["left_side_gestures"]["middle_click"]
-        self.run_app(cmd)
+        self.run_app(cmd, True)
+
+    def center_gesture_left_click(self, gesture, data, x, y):
+        cmd = self.panel_cfg["center_side_gestures"]["left_click"]
+        self.run_app(cmd, True)
+
+    def center_gesture_middle_click(self, gesture, data, x, y):
+        cmd = self.panel_cfg["center_side_gestures"]["middle_click"]
+        self.run_app(cmd, True)
+
+    def center_gesture_right_click(self, gesture, data, x, y):
+        cmd = self.panel_cfg["left_side_gestures"]["right_click"]
+        self.run_app(cmd, True)
 
     def right_gesture_left_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["right_side_gestures"]["left_click"]
-        self.run_app(cmd)
+        self.run_app(cmd, True)
 
     def right_gesture_right_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["right_side_gestures"]["right_click"]
-        self.run_app(cmd)
+        self.run_app(cmd, True)
 
     def right_gesture_middle_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["right_side_gestures"]["middle_click"]
-        self.run_app(cmd)
+        self.run_app(cmd, True)
 
     def NewMenu(self):
         with open(menu_config, "r") as f:
@@ -625,7 +675,7 @@ class Panel(Adw.Application):
         self.run_app(param)
 
     def update_clock(self):
-        self.clock_button.set_label(datetime.now().strftime("%d %a %H:%M"))
+        self.clock_button.set_label(datetime.now().strftime("%d %A %H:%M"))
         return True
 
     def load_panel_config(self):
@@ -636,7 +686,7 @@ class Panel(Adw.Application):
         # [optimization]
         # every 10 minutes check for non-existent pids and clean the dict
         for pid in psutil_store.keys():
-            if pid not in pid_list:
+            if pid not in self.pid_list:
                 del psutil_store[pid]
 
     def CreateGesture(self, widget, mouse_button, callback):
@@ -645,7 +695,7 @@ class Panel(Adw.Application):
         gesture.set_button(mouse_button)
         widget.add_controller(gesture)
 
-    def CreateButton(self, icon_name, app, Class_Style):
+    def CreateButton(self, icon_name, cmd, Class_Style):
         box = Gtk.Box(spacing=0)
         icon = Gtk.Image(icon_name=icon_name)
         box.append(icon)
@@ -653,10 +703,10 @@ class Panel(Adw.Application):
         button = Adw.ButtonContent()
         button.set_icon_name(icon_name)
         button.add_css_class(Class_Style + "Button")
-        if app == "NULL":
+        if cmd == "NULL":
             button.set_sensitive(False)
             return button
-        self.CreateGesture(button, 1, lambda *_: self.run_app(app))
+        self.CreateGesture(button, 1, lambda *_: self.run_app(cmd))
         self.CreateGesture(button, 3, lambda *_: self.dockbar_remove(icon_name))
         return button
 
@@ -676,7 +726,6 @@ class Panel(Adw.Application):
         self.run_app("wl-copy {0}".format(self.instance.get_active_window().pid))
 
     def sink_input_info(self):
-        pid = self.instance.get_active_window().pid
         pactl = "pactl list sink-inputs".split()
         sink_inputs = check_output(pactl).decode()
         sinklist = sink_inputs.split("Sink Input #")
@@ -701,8 +750,6 @@ class Panel(Adw.Application):
         p = psutil.Process(pid)
         io_counters = p.io_counters()
         disk_usage_process = io_counters[2] + io_counters[3]  # read_bytes + write_bytes
-        disk_io_counter = psutil.disk_io_counters()
-        disk_total = disk_io_counter[2] + disk_io_counter[3]  # read_bytes + write_bytes
         return int(round(disk_usage_process / (1024**2), 2))
 
     def volume_watch(self):
@@ -721,15 +768,26 @@ class Panel(Adw.Application):
         m.run(None)
         m.destroy()
 
-    def run_app(self, cmd):
+    def run_app(self, cmd, cmd_mode=True):
+        print(cmd)
+        if "kitty --hold" in cmd and cmd_mode:
+            try:
+                Popen(cmd.split(), start_new_session=True)
+            except Exception as e:
+                raise (e)
+                pass
+            return
         if ";" in cmd:
-            for line in cmd.split(";"):
+            for c in cmd.split(";"):
                 try:
-                    Popen(line.split(), start_new_session=True)
-                except:
-                    pass
+                    Popen(c.split(), start_new_session=True)
+                except Exception as e:
+                    print(e)
         else:
-            Popen(cmd.split(), start_new_session=True)
+            try:
+                Popen(cmd.split(), start_new_session=True)
+            except Exception as e:
+                print(e)
 
     def dock_launcher(self, cmd):
         processes = psutil.process_iter()
@@ -755,6 +813,9 @@ class Panel(Adw.Application):
         initial_title = aw.initial_title.lower()
         wm_class = aw.initial_wm_class.lower()
         title = aw.title
+        url = ""
+        if "firefox" in wm_class and "." in title:
+            wm_class = title.split()[0]
 
         if initial_title == "zsh":
             wm_class = title.split()[0]
@@ -777,12 +838,48 @@ class Panel(Adw.Application):
         print(cmd)
         self.run_app(cmd)
 
+    def output_loop(self, output, label):
+        output = check_output(output.split()).decode().strip()
+        label.set_markup(output)
+        GLib.Source.remove(self.exec_once)
+        return True
+
+    def create_cmd_label(self, output, position, css_class, refresh):
+        label = Gtk.Label()
+        box = Gtk.Box()
+        box.set_halign(Gtk.Align.END)
+        box.set_hexpand(False)
+        box.set_baseline_position(Gtk.BaselinePosition.BOTTOM)
+        box.add_css_class(css_class)
+        label.add_css_class(css_class)
+        box.append(label)
+        if position == "left":
+            self.top_panel_box_left.append(box)
+        if position == "right":
+            self.top_panel_box_systray.append(box)
+        if position == "center":
+            self.clock_box.append(box)
+        self.exec_once = GLib.timeout_add(1000, lambda: self.output_loop(output, label))
+        GLib.timeout_add(refresh, lambda: self.output_loop(output, label))
+
+    def cmd_output(self):
+        with open(cmd_config, "r") as f:
+            cmd_toml = toml.load(f)
+        for t in cmd_toml:
+            cmd = cmd_toml[t]["cmd"]
+            position = cmd_toml[t]["position"]
+            refresh = cmd_toml[t]["refresh"]
+            css_class = cmd_toml[t]["css_class"]
+            self.create_cmd_label(cmd, position, css_class, refresh)
+
     def update_title(self):
         try:
             active_window = self.instance.get_active_window()
             initial_title = active_window.initial_title
             title = active_window.title
-            title = title[0:48]
+            title = title[0:100]
+            if "www." in title:
+                title = title.split("www.")[1]
             workspace_id = active_window.workspace_id
             pid = active_window.pid
             wclass = active_window.initial_wm_class.lower()
@@ -796,7 +893,7 @@ class Panel(Adw.Application):
             if " — " in title:
                 title = title.split(" — ")[0]
             title = "{0}".format(title)
-            self.window_title.set_label(title)
+            self.window_title.set_label("{0}".format(title))
             self.tbworkspace.set_label("W: {0}".format(workspace_id))
             self.tbpid.set_label("PID: {0}".format(pid))
             self.tbclass.set_label("{0}".format(wclass))
@@ -813,12 +910,12 @@ class Panel(Adw.Application):
                 pass
             self.window_title.set_icon_name(wclass)
             self.tbclass.set_icon_name(wclass)
+            if initial_title == "zsh":
+                wclass = title.split()[0]
+                self.tbclass.set_label("{0}".format(wclass))
+
         except:
             pass
-
-        if initial_title == "zsh":
-            wclass = title.split()[0]
-            self.tbclass.set_label("{0}".format(wclass))
 
         return True
 
