@@ -1,4 +1,5 @@
-# Hyprpanel, a panel for hyprland users
+#Hyprpanel
+## a panel for hyprland users
 # How to Install
 - git clone https://github.com/killown/hyprpybar
 - cd hyprpybar
