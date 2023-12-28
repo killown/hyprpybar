@@ -45,7 +45,7 @@ css_class = "css_class" #to customize the widget look
 
 ```
 
-#### Create new menus with using toml
+#### Create new menus in the top bar using toml
 
 ```
 [[MyMenu.item_1]]
