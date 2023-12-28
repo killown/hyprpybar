@@ -35,13 +35,19 @@ The info panel is intended to be used with https://github.com/killown/hyprshell 
 - current workspace
 
 #### Create custom output in the top bar using toml
+
+```
 [some_name]
 refresh = 1000 #in ms
 position = "center" #left center right
 cmd = "command" #command or script
 css_class = "css_class" #to customize the widget look
 
+```
+
 #### Create new menus with using toml
+
+```
 [[MyMenu.item_1]]
 cmd = "command"
 name = "Menu Label"
@@ -50,3 +56,4 @@ name = "Menu Label"
 cmd = "command"
 name = "Menu Label"
 
+```
