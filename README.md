@@ -5,5 +5,6 @@
 - sh install
 - mkdir ~/.config/hyprpanel; cp config/* ~/.config/hyprpanel
 
-![screenshot](https://github.com/killown/hyprpanel/assets/24453/2aa061ef-8720-42d0-a592-4de6851322c6)
 
+
+![ezgif com-video-to-gif-converter](https://github.com/killown/hyprpybar/assets/24453/9cc3588b-21d5-462e-88d8-233159d10c26)
