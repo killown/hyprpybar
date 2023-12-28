@@ -19,6 +19,10 @@ mkdir ~/.config/hyprpanel; cp config/* ~/.config/hyprpanel
 - right panel for workspaces navigation
 - bar with all positions, on top (exclusive) or (background) behind all windows
 - Easily create custom menus with toml
+- config for custom gesture actions for mouse buttons and scrolling
+- config for custom gestures for top left and top right panel giving more possibilities of commands
+- Lightweight, low cpu usage, since it's not watching for bluetooth, network and some more stuff
+- increase and decrease sound volume with mouse wheel in the top bar
 
 
 ##### Info from focused window
