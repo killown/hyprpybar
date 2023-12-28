@@ -1,5 +1,5 @@
 # Hyprpanel
-##### _a gtk4/adwaita panel using made for hyprland users_
+##### _a gtk4/adwaita panel made for hyprland
 
 ### How to Install
 
