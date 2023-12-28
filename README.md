@@ -1,5 +1,5 @@
 # Hyprpanel
-##### _a panel made for hyprland users_
+##### _a gtk4/adwaita panel using made for hyprland users_
 
 ### How to Install
 
@@ -26,11 +26,27 @@ The info panel is intended to be used with https://github.com/killown/hyprshell 
 - Lightweight, low cpu usage, since it's not watching for bluetooth, network and some more stuff
 - increase and decrease sound volume with mouse wheel in the top bar
 
-
-##### Info from focused window
+#### Info from focused window
 - CPU
 - MEM
 - Disk
 - take notes of every window
 - pid
 - current workspace
+
+#### Create custom output in the top bar using toml
+[some_name]
+refresh = 1000 #in ms
+position = "center" #left center right
+cmd = "command" #command or script
+css_class = "css_class" #to customize the widget look
+
+#### Create new menus with using toml
+[[MyMenu.item_1]]
+cmd = "command"
+name = "Menu Label"
+
+[[MyMenu.item_2]]
+cmd = "command"
+name = "Menu Label"
+
