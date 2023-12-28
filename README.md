@@ -58,6 +58,6 @@ name = "Menu Label"
 
 ```
 
-License
+## License
 
-Hyprland is licensed under the MIT license. [See LICENSE for more information](https://github.com/killown/hyprpybar/blob/main/LICENSE).
+Hyprpanel is licensed under the MIT license. [See LICENSE for more information](https://github.com/killown/hyprpybar/blob/main/LICENSE).
