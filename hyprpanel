@@ -331,9 +331,6 @@ class Panel(Adw.Application):
 
         # create panel buttons
         if default_panel:
-            self.dockbar = self.utils.CreateFromAppList(
-                "horizontal", self.dockbar_config, "BottomBar"
-            )
             workspace_buttons = self.utils.CreateFromAppList(
                 "vertical", self.workspace_list_config, "RightBar"
             )
@@ -425,7 +422,6 @@ class Panel(Adw.Application):
             self.dock.do_start()
             self.top_panel.present()
             self.right_panel.present()
-            self.bottom_panel.present()
             self.left_panel.present()
             self.top_panel_background.present()
             print("okay" * 100)
