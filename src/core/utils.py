@@ -47,9 +47,9 @@ class Utils(Adw.Application):
             except Exception as e:
                 print(e)
                 
-    def CreateFromAppList(self, orientation, dockbar_config, class_style):
+    def CreateFromAppList(self, orientation, config, class_style):
         box = Gtk.Box(spacing=10, orientation=orientation)
-        with open(self.dockbar_config, "r") as f:
+        with open(config, "r") as f:
             config = toml.load(f)
             for app in config:
                 button = self.CreateButton(

@@ -334,7 +334,6 @@ class Panel(Adw.Application):
             workspace_buttons = self.utils.CreateFromAppList(
                 "vertical", self.workspace_list_config, "RightBar"
             )
-            #self.bottom_panel.set_content(self.dockbar)
             self.top_panel.set_content(self.top_panel_box_full)
             self.right_panel.set_content(workspace_buttons)
 
