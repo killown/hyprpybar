@@ -3,7 +3,8 @@
 
 ### How to Install
 
-```git clone https://github.com/killown/hyprpybar
+```
+git clone https://github.com/killown/hyprpybar
 cd hyprpybar
 sh install
 mkdir ~/.config/hyprpanel; cp config/* ~/.config/hyprpanel
