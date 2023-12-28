@@ -1,5 +1,5 @@
-# Python Panel Using GTK4 Layer Shell
-# Install
+# Hyprpanel, a panel for hyprland users
+# How to Install
 - git clone https://github.com/killown/hyprpybar
 - cd hyprpybar
 - sh install
