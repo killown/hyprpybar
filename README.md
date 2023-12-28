@@ -1,7 +1,7 @@
 # Python Panel Using GTK4 Layer Shell
 # Install
-- git clone https://github.com/killown/hyprpanel
-- cd hyprpanel
+- git clone https://github.com/killown/hyprpybar
+- cd hyprpybar
 - sh install
 - mkdir ~/.config/hyprpanel; cp config/* ~/.config/hyprpanel
   
