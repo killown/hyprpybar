@@ -30,16 +30,18 @@ wayland_protocols = dependency('wayland-protocols', version: '>=1.16', required:
 pkg_config = import('pkgconfig')
 gnome = import('gnome')
 
-subdir('include')
-subdir('protocol')
-subdir('src')
+subdir('gtk4-layer-shell/include')
+subdir('gtk4-layer-shell/protocol')
+subdir('gtk4-layer-shell/src')
 
 gtk_layer_shell = declare_dependency(
     link_with: gtk_layer_shell_lib,
     include_directories: gtk_layer_shell_inc)
 
-install_subdir('build/src', install_dir : '/usr/include/hyprpanel')
-install_data('hyprpanel', install_dir : '/usr/bin')
+install_subdir('gtk4-layer-shell/build/src', install_dir : '/usr/include/hyprpanel')
+install_subdir('src/core', install_dir : '/opt/hyprpanel/src')
+install_subdir('src/plugins', install_dir : '/opt/hyprpanel/src')
+install_data('hyprpanel', install_dir : '/opt/hyprpanel/')
 
 if get_option('docs')
     subdir('doc')
