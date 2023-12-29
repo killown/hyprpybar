@@ -207,6 +207,7 @@ class Panel(Adw.Application):
         self.clock_button = self.utils.CreateButton(
             "gnome-panel-clock-symbolic", "cal", "ClockButton"
         )
+        self.clock_button.set_label(datetime.now().strftime("%d %A %H:%M"))
         self.clock_button.set_halign(Gtk.Align.CENTER)
         self.clock_button.set_hexpand(True)
         self.clock_box.append(self.clock_button)
@@ -238,7 +239,7 @@ class Panel(Adw.Application):
         self.top_panel_box_left.append(self.cf_box)
 
         GLib.timeout_add(1000, self.update_clock)
-        GLib.timeout_add(200, self.update_title)
+        GLib.timeout_add(200, self.update_widgets)
         GLib.timeout_add(10000, self.mullvad_status)
         GLib.timeout_add(600000, self.clean_pid_store)
 
@@ -406,14 +407,14 @@ class Panel(Adw.Application):
 
         self.utils.CreateGesture(self.todo_button, 1, self.take_note_app)
         self.utils.CreateGesture(self.clock_box, 1, self.notify_client)
-        self.utils.CreateGesture(self.window_title, 3, self.left_gesture_right_click)
+        self.utils.CreateGesture(self.window_title, 1, self.window_notes)
         self.utils.CreateGesture(self.tbclass, 1, self.dock.dockbar_append)
         self.utils.CreateGesture(self.tbclass, 3, self.window_notes)
         self.utils.CreateGesture(self.tbSIGKILL, 1, self.sigkill_activewindow)
         self.utils.CreateGesture(self.tbvol, 1, self.toggle_mute_from_sink)
-        self.utils.CreateGesture(
-            self.top_panel_box_left, 1, self.left_gesture_left_click
-        )
+        #self.utils.CreateGesture(
+        #    self.top_panel_box_left, 1, self.left_gesture_left_click
+        #)
         self.utils.CreateGesture(
             self.top_panel_box_left, 2, self.left_gesture_middle_click
         )
@@ -444,7 +445,7 @@ class Panel(Adw.Application):
             self.dock.do_start()
             self.top_panel.present()
             self.right_panel.present()
-            self.left_panel.present()
+            # self.left_panel.present()
             self.top_panel_background.present()
             print("okay" * 100)
 
@@ -714,7 +715,7 @@ class Panel(Adw.Application):
                     self.tbvol.set_label("Volume: {0}%".format(volume))
                     self.tbcard.set_label("{0}".format(sink.description))
 
-    def update_title(self):
+    def update_widgets(self):
         try:
             active_window = self.instance.get_active_window()
             initial_title = active_window.initial_title
@@ -730,7 +731,7 @@ class Panel(Adw.Application):
             except Exception as e:
                 # print(e)
                 pass
-            
+
             if pid not in self.psutil_store.keys():
                 process = psutil.Process(pid)
                 self.psutil_store[pid] = process
@@ -756,11 +757,11 @@ class Panel(Adw.Application):
             self.tbclass.set_icon_name(wclass)
             if initial_title == "zsh":
                 label = title.split(" ")[0]
-                icon_exist = [i for i in  self.icon_theme_list if label in i]
+                icon_exist = [i for i in self.icon_theme_list if label in i]
                 if icon_exist:
                     self.window_title.set_icon_name(label)
                     self.tbclass.set_icon_name("{0}".format(label))
-            icon_exist = [i for i in  self.icon_theme_list if wclass in i]
+            icon_exist = [i for i in self.icon_theme_list if wclass in i]
             if not icon_exist:
                 icon = icon_exist[-1]
                 self.window_title.set_icon_name(icon)
