@@ -102,6 +102,7 @@ class Panel(Adw.Application):
         self.dock = Dockbar(
             application_id="com.github.dockbar",
         )
+        self.icon_theme_list = Gtk.IconTheme().get_icon_names()
 
     def on_activate(self, app):
         self.top_panel_box_left.add_css_class("top_panel_box_left")
@@ -717,13 +718,19 @@ class Panel(Adw.Application):
         try:
             active_window = self.instance.get_active_window()
             initial_title = active_window.initial_title
-            title = active_window.title
-            title = title[0:100]
+            title = active_window.title[0:100]
             if "www." in title:
                 title = title.split("www.")[1]
             workspace_id = active_window.workspace_id
             pid = active_window.pid
             wclass = active_window.initial_wm_class.lower()
+            try:
+                # exclusive try because if it fails, will not set the icon at all
+                wclass = self.panel_cfg["change_icon_title"][wclass]
+            except Exception as e:
+                # print(e)
+                pass
+            
             if pid not in self.psutil_store.keys():
                 process = psutil.Process(pid)
                 self.psutil_store[pid] = process
@@ -745,27 +752,22 @@ class Panel(Adw.Application):
             self.tbexe.set_label("Exe: {0}".format(exe))
             self.tbdiskusage.set_label("Disk: {0}MB".format(self.disk_usage_by_pid()))
             self.volume_watch()
-
-            try:
-                # exclusive try because if it fails, will not set the icon at all
-                wclass = self.panel_cfg["change_icon_title"][wclass]
-            except Exception as e:
-                print(e)
-
+            self.window_title.set_icon_name(wclass)
+            self.tbclass.set_icon_name(wclass)
             if initial_title == "zsh":
                 label = title.split(" ")[0]
-                if label not in Gtk.IconTheme().get_icon_names():
-                    self.window_title.set_icon_name(wclass)
-                    self.tbclass.set_icon_name("{0}".format(wclass))
-                else:
+                icon_exist = [i for i in  self.icon_theme_list if label in i]
+                if icon_exist:
                     self.window_title.set_icon_name(label)
                     self.tbclass.set_icon_name("{0}".format(label))
-            else:
-                self.window_title.set_icon_name(wclass)
-                self.tbclass.set_icon_name(wclass)
-
+            icon_exist = [i for i in  self.icon_theme_list if wclass in i]
+            if not icon_exist:
+                icon = icon_exist[-1]
+                self.window_title.set_icon_name(icon)
+                self.tbclass.set_icon_name(icon)
         except Exception as e:
-            print(e)
+            # print(e)
+            pass
 
         return True
 
