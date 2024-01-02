@@ -579,16 +579,34 @@ class Panel(Adw.Application):
             if m == "icons":
                 continue
             actions = Gio.Menu()
+            submenu = Gio.Menu()
+            submenu_label = ""
             btn = Gtk.MenuButton(label=m)
-            btn.add_css_class("NewMenu")
+            btn.add_css_class("NewMenu") 
             menu_buttons[m] = btn
-            for item in menu_toml[m].values():
+            for item in menu_toml[m].values():                    
                 name = item[0]["name"]
                 action = item[0]["cmd"].replace(" ", "________")
-                actions.append(name, action)
-                btn.install_action(action, None, self.menu_run_action)
-                btn.set_menu_model(actions)
-                btn.set_icon_name(menu_toml["icons"][m])
+                if len(item[0]) > 2:
+
+                    try:
+                        submenu_label = item[0]["submenu"]
+                    except:
+                        pass
+                    submenu.append(name, action)
+                    btn.install_action(action, None, self.menu_run_action)
+                    btn.set_menu_model(actions)
+                    btn.set_icon_name(menu_toml["icons"][m])
+                else:
+                    actions.append(name, action)
+                    btn.install_action(action, None, self.menu_run_action)
+                    btn.set_menu_model(actions)
+                    btn.set_icon_name(menu_toml["icons"][m])      
+            try:
+                actions.append_submenu(submenu_label, submenu)
+            except:
+                pass
+            
         return menu_buttons
 
     def sigkill_activewindow(self, *_):
@@ -722,7 +740,6 @@ class Panel(Adw.Application):
             #disable widgets update when active window is fullscreen
             if not self.instance.get_workspace_by_name("OVERVIEW"):
                 return True
-
             
             initial_title = active_window.initial_title
             title = active_window.title[0:100]
