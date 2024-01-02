@@ -588,11 +588,6 @@ class Panel(Adw.Application):
                 name = item[0]["name"]
                 action = item[0]["cmd"].replace(" ", "________")
                 if len(item[0]) > 2:
-
-                    try:
-                        submenu_label = item[0]["submenu"]
-                    except:
-                        pass
                     submenu.append(name, action)
                     btn.install_action(action, None, self.menu_run_action)
                     btn.set_menu_model(actions)
@@ -602,10 +597,12 @@ class Panel(Adw.Application):
                     btn.install_action(action, None, self.menu_run_action)
                     btn.set_menu_model(actions)
                     btn.set_icon_name(menu_toml["icons"][m])      
-            try:
-                actions.append_submenu(submenu_label, submenu)
-            except:
-                pass
+                try:
+                    if submenu_label != item[0]["submenu"]:
+                        submenu_label = item[0]["submenu"]
+                        actions.append_submenu(submenu_label, submenu)
+                except:
+                    pass
             
         return menu_buttons
 
