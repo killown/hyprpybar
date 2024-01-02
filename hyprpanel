@@ -412,9 +412,9 @@ class Panel(Adw.Application):
         self.utils.CreateGesture(self.tbclass, 3, self.window_notes)
         self.utils.CreateGesture(self.tbSIGKILL, 1, self.sigkill_activewindow)
         self.utils.CreateGesture(self.tbvol, 1, self.toggle_mute_from_sink)
-        #self.utils.CreateGesture(
+        # self.utils.CreateGesture(
         #    self.top_panel_box_left, 1, self.left_gesture_left_click
-        #)
+        # )
         self.utils.CreateGesture(
             self.top_panel_box_left, 2, self.left_gesture_middle_click
         )
@@ -718,6 +718,12 @@ class Panel(Adw.Application):
     def update_widgets(self):
         try:
             active_window = self.instance.get_active_window()
+            
+            #disable widgets update when active window is fullscreen
+            if not self.instance.get_workspace_by_name("OVERVIEW"):
+                return True
+
+            
             initial_title = active_window.initial_title
             title = active_window.title[0:100]
             if "www." in title:
