@@ -1,5 +1,66 @@
 [icons]
 "System" = "system-shutdown-alt3"
+"Bluez" = "blueberry"
+"Scripts" = "application-x-python-bytecode"
+"Audio" = "stock_volume-max"
+"VPN" = "mullvad-vpn"
+
+
+[[VPN.item_1]]
+cmd = "/home/neo/Scripts/hyprland/mullvad-random-br.py"
+name = "Change Server"
+
+[[VPN.item_2]]
+cmd = "/home/neo/Scripts/hyprland/mullvad-status.py"
+name = "Connection Status"
+
+[[VPN.item_3]]
+cmd = "/home/neo/Scripts/hyprland/mullvad-disconnect.py"
+name = "Mullvad Disconnect"
+
+[[VPN.item_4]]
+cmd = "/home/neo/Scripts/hyprland/mullvad-connect.py"
+name = "Mullvad Connect"
+
+[[Bluez.item_1]]
+#use bluetoothctl scan on in case you don't have the address yet to pair the device
+cmd = "sh /home/neo/.config/hypr/scripts/bluetooth-soundcore-life-q30"
+name = "Conectar (Soundcore Life Q30)"
+
+[[Bluez.item_2]]
+#use bluetoothctl scan on in case you don't have the address yet to pair the device
+cmd = "sh /home/neo/.config/hypr/scripts/bluetooth-ps4-joystick"
+name = "Conectar (Controle PS4)"
+
+
+[[Bluez.item_3]]
+#use bluetoothctl scan on in case you don't have the address yet to pair the device
+cmd = "sh /home/neo/.config/hypr/scripts/bluetooth-gamesir-joystick"
+name = "Conectar (Controle Gamesir)"
+
+
+[[Scripts.item_1]]
+cmd = "/home/neo/Scripts/disavow-check.py"
+name = "Disavow Check"
+
+[[Audio.item_1]]
+#use pactl list sinks short to list the audio output available
+cmd = "pactl set-default-sink alsa_output.usb-3142_fifine_Headset-00.analog-stereo"
+name = "Fifine Headset"
+
+[[Audio.item_2]]
+#use pactl list sinks short to list the audio output available
+cmd = "pactl set-default-sink alsa_output.pci-0000_0c_00.4.analog-stereo"
+name = "Analog Stereo PC"
+
+[[Audio.item_3]]
+#use pactl list sinks short to list the audio output available
+cmd = "pactl set-default-sink bluez_output.AC_12_2F_DC_E1_3C.1"
+name = "Soundcore Life Q30"
+
+[[Audio.item_4]]
+cmd = "pavucontrol"
+name = "Audio Control"
 
 [[System.item_1]]
 cmd = "hyprctl dispatch exit"
@@ -18,14 +79,17 @@ name = "Desligar PC"
 [[System.item_3]]
 cmd = "hyprctl keyword monitor DP-1, disable;hyprpanel"
 name = "Desligar monitor da direita"
+submenu = "Monitores"
 
 [[System.item_4]]
 cmd = "hyprctl keyword monitor DP-2, disable;hyprpanel"
 name = "Desligar Monitor da esquerda"
+submenu = "Monitores"
 
 [[System.item_5]]
 cmd = "hyprctl reload; killall -9 hyprpanel;hyprpanel"
 name = "Religar Monitores"
+submenu = "Monitores"
 
 [[System.item_6]]
 cmd = "killall -9 python3 /usr/bin/hyprpanel"
