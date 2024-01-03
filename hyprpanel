@@ -605,10 +605,8 @@ class Panel(Adw.Application):
                     menuitem = Gio.MenuItem.new(name, None)
                     menuitem.set_action_and_target_value("app.run-command", GLib.Variant('s', cmd)) 
                     menu.append_item(menuitem)
-            try:
+            if dsubmenu:
                 [menu.append_submenu(k, dsubmenu[k]) for k in dsubmenu.keys()]
-            except:
-                pass
         return menu_buttons
 
     def sigkill_activewindow(self, *_):
