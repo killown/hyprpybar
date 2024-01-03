@@ -570,6 +570,16 @@ class Panel(Adw.Application):
     def right_gesture_middle_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["right_side_gestures"]["middle_click"]
         self.utils.run_app(cmd, True)
+        
+    def simple_action(self):
+        action = Gio.SimpleAction(name="run-command", parameter_type=GLib.VariantType('s'))
+        action.connect("activate", self.menu_run_action)
+        app.add_action(action)
+        
+    def menu_item(self, menu, name, cmd):
+        menuitem = Gio.MenuItem.new(name, None)
+        menuitem.set_action_and_target_value("app.run-command", GLib.Variant('s', cmd)) 
+        menu.append_item(menuitem)
 
     def NewMenu(self):
         with open(self.menu_config, "r") as f:
@@ -586,9 +596,7 @@ class Panel(Adw.Application):
             submenu = None
             dsubmenu = {}
             menu_buttons[m] = btn
-            action = Gio.SimpleAction(name="run-command", parameter_type=GLib.VariantType('s'))
-            action.connect("activate", self.menu_run_action)
-            app.add_action(action)
+            self.simple_action()
             for item in menu_toml[m].values():                    
                 name = item[0]["name"]
                 cmd = item[0]["cmd"]
@@ -598,13 +606,9 @@ class Panel(Adw.Application):
                     if submenu is None:
                         submenu = Gio.Menu()
                         dsubmenu[submenu_label] = submenu 
-                    menuitem = Gio.MenuItem.new(name, None)
-                    menuitem.set_action_and_target_value("app.run-command", GLib.Variant('s', cmd)) 
-                    submenu.append_item(menuitem)
+                    self.menu_item(submenu, name, cmd)
                 else:
-                    menuitem = Gio.MenuItem.new(name, None)
-                    menuitem.set_action_and_target_value("app.run-command", GLib.Variant('s', cmd)) 
-                    menu.append_item(menuitem)
+                    self.menu_item(menu, name, cmd)
             if dsubmenu:
                 [menu.append_submenu(k, dsubmenu[k]) for k in dsubmenu.keys()]
         return menu_buttons
