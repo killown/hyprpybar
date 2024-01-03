@@ -9,7 +9,7 @@ cd hyprpybar
 sh install
 mkdir ~/.config/hyprpanel; cp config/* ~/.config/hyprpanel
 ```
- [<img src="https://github.com/killown/hyprpybar/assets/24453/04e99ccc-7351-4184-9407-184e1e85b474" width="50%">](https://www.youtube.com/watch?v=UYnr8RLHP7c "Youtube Video")
+ [<img src="https://github.com/killown/hyprpybar/assets/24453/04e99ccc-7351-4184-9407-184e1e85b474" width="100%">](https://www.youtube.com/watch?v=UYnr8RLHP7c "Youtube Video")
 
 The info panel is intended to be used with https://github.com/killown/hyprshell plugin
 
