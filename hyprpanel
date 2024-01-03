@@ -579,11 +579,12 @@ class Panel(Adw.Application):
             if m == "icons":
                 continue
             menu = Gio.Menu()
-            submenu = None
-            submenu_label = ""
-            dsubmenu = {}
             btn = Gtk.MenuButton(label=m)
             btn.add_css_class("NewMenu") 
+            btn.set_icon_name(menu_toml["icons"][m])
+            btn.set_menu_model(menu)
+            submenu = None
+            dsubmenu = {}
             menu_buttons[m] = btn
             action = Gio.SimpleAction(name="run-command", parameter_type=GLib.VariantType('s'))
             action.connect("activate", self.menu_run_action)
@@ -608,8 +609,6 @@ class Panel(Adw.Application):
                 [menu.append_submenu(k, dsubmenu[k]) for k in dsubmenu.keys()]
             except:
                 pass
-            btn.set_icon_name(menu_toml["icons"][m])
-            btn.set_menu_model(menu)
         return menu_buttons
 
     def sigkill_activewindow(self, *_):
