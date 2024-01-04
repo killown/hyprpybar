@@ -1,12 +1,18 @@
 import os
 import toml
 import gi
+
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk
 from ..core.create_panel import *
 from subprocess import Popen
 from ..core.utils import Utils
+from hyprpy import Hyprland
+from collections import ChainMap
+from subprocess import call, check_output as out
+import json
+import psutil
 
 
 class Dockbar(Adw.Application):
@@ -24,6 +30,8 @@ class Dockbar(Adw.Application):
         self.cmd_config = os.path.join(self.config_path, "cmd.toml")
         self.psutil_store = {}
         self.panel_cfg = self.utils.load_topbar_config()
+        self.instance = self.HyprlandInstance()
+
     def do_start(self):
         with open(self.topbar_config, "r") as f:
             panel_toml = toml.load(f)
@@ -33,15 +41,15 @@ class Dockbar(Adw.Application):
                     if panel_toml[p]["Exclusive"] == "False":
                         exclusive = False
                     position = panel_toml[p]["position"]
-                    self.bottom_panel = CreatePanel(self,
-                        "BOTTOM", position, exclusive, 32, 0, "BottomBar"
+                    self.bottom_panel = CreatePanel(
+                        self, "BOTTOM", position, exclusive, 32, 0, "BottomBar"
                     )
                     self.dockbar = self.utils.CreateFromAppList(
-                    "horizontal", self.dockbar_config, "BottomBar"
-                    )   
-                    self.bottom_panel.set_content(self.dockbar)     
+                        "horizontal", self.dockbar_config, "BottomBar"
+                    )
+                    self.bottom_panel.set_content(self.dockbar)
                     self.bottom_panel.present()
-        
+
     def dockbar_append(self, *_):
         w = self.instance.get_active_window()
         initial_title = w.initial_title.lower()
@@ -67,7 +75,7 @@ class Dockbar(Adw.Application):
         with open(self.dockbar_config, "w") as f:
             toml.dump(updated_data, f)
 
-        button = self.CreateButton(icon, cmd, initial_title)
+        button = self.utils.CreateButton(icon, cmd, initial_title)
         self.dockbar.append(button)
 
     def dockbar_remove(self, cmd):
@@ -77,7 +85,27 @@ class Dockbar(Adw.Application):
         del config[cmd]
         with open(self.dockbar_config, "w") as f:
             toml.dump(config, f)
-            
+
+    def join_windows(self, *_):
+        activewindow = out("hyprctl activewindow".split()).decode()
+        wclass = activewindow.split("class: ")[-1].split("\n")[0]
+        activeworkspace = activewindow.split("workspace: ")[-1].split(" ")[0]
+        j = out("hyprctl -j clients".split()).decode()
+        clients = json.loads(j)
+        for client in clients:
+            if wclass in client["class"]:
+                move_clients = (
+                    "hyprctl dispatch movetoworkspace {0},address:{1}".format(
+                        activeworkspace, client["address"]
+                    ).split()
+                )
+                gotoworkspace = "hyprctl dispatch workspace name:{0}".format(
+                    activeworkspace
+                ).split()
+                # move all windows that belongs to the same class from active window to the current workspace
+                call(move_clients)
+                call(gotoworkspace)
+
     def dock_launcher(self, cmd):
         processes = psutil.process_iter()
         for process in processes:
@@ -96,3 +124,6 @@ class Dockbar(Adw.Application):
         else:
             call("hyprctl dispatch workspace name:{0}".format(cmd).split())
             Popen(cmd.split(), start_new_session=True)
+
+    def HyprlandInstance(self):
+        return Hyprland()
