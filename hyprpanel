@@ -755,6 +755,12 @@ class Panel(Adw.Application):
             title = active_window.title[0:100]
             wclass = active_window.initial_wm_class.lower()
             initial_title = active_window.initial_title
+            try:
+                # exclusive try because if it fails, will not set the icon at all
+                wclass = self.panel_cfg["change_icon_title"][wclass]
+            except Exception as e:
+                # print(e)
+                pass
             if "www." in title:
                 title = title.split("www.")[1]
             if " — " in title:
