@@ -100,4 +100,8 @@ class Utils(Adw.Application):
         tbtn_title_b.add_css_class(class_style)
         return tbtn_title_b
     
+    def dockbar_remove(self, cmd):
+        with open(self.dockbar_config, "r") as f:
+            config = toml.load(f)
+    
 
