@@ -43,51 +43,60 @@ from src.core.utils import Utils
 class Panel(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.utils = Utils(
-            application_id="com.github.utils",
-        )
+ 
+        # Initialize utilities and connect to activation event
+        self._initialize_utilities()
         self.connect("activate", self.on_activate)
-        self.bottom_panel = None
-        self.right_panel = None
-        self.left_panel = None
-        self.top_panel = None
-        self.top_panel_background = None
+
+        # Setup panel boxes
+        self._setup_panel_boxes()
+
+        # Monitor dimensions and volume controls
+        self.monitor_width, self.monitor_height = 0, 0
+        self.toggle_mute = {}
+        self.volume = 0
+        self.clock_box = Gtk.Box()
+        self.args = sys.argv
+
+        # Configuration paths
+        self._setup_config_paths()
+
+        # Load configurations
+        self.panel_cfg = self.load_topbar_config()
+
+        # Dockbar and icon themes
+        self.dock = Dockbar(application_id="com.github.dockbar")
+        self.icon_theme_list = Gtk.IconTheme().get_icon_names()
+        self.active_window_changed = None
+
+    def _initialize_utilities(self):
+        """Initialize utility functions and properties."""
+        self.utils = Utils(application_id="com.github.utils")
+
+    def _setup_panel_boxes(self):
+        """Setup panel boxes and related configurations."""
         self.top_panel_box_left = Gtk.Box(spacing=10)
         self.top_panel_box_systray = Gtk.Box(spacing=0)
         self.top_panel_box_right = Gtk.Box(spacing=6)
         self.top_panel_grid_right = Gtk.Grid()
         self.top_panel_grid_right.attach(self.top_panel_box_right, 1, 0, 1, 2)
         self.top_panel_grid_right.attach_next_to(
-            self.top_panel_box_systray,
-            self.top_panel_box_right,
-            Gtk.PositionType.RIGHT,
-            1,
-            2,
+            self.top_panel_box_systray, self.top_panel_box_right, Gtk.PositionType.RIGHT, 1, 2
         )
+
         self.top_panel_box_center = Gtk.Box(spacing=6)
         self.top_panel_box_full = Gtk.Grid()
         self.top_panel_box_full.set_column_homogeneous(True)
         self.top_panel_box_full.attach(self.top_panel_box_left, 1, 0, 1, 2)
         self.top_panel_box_full.attach_next_to(
-            self.top_panel_box_center,
-            self.top_panel_box_left,
-            Gtk.PositionType.RIGHT,
-            1,
-            2,
+            self.top_panel_box_center, self.top_panel_box_left, Gtk.PositionType.RIGHT, 1, 2
         )
         self.top_panel_box_full.attach_next_to(
-            self.top_panel_grid_right,
-            self.top_panel_box_center,
-            Gtk.PositionType.RIGHT,
-            1,
-            3,
+            self.top_panel_grid_right, self.top_panel_box_center, Gtk.PositionType.RIGHT, 1, 3
         )
-        self.monitor_width = 0
-        self.monitor_height = 0
-        self.toggle_mute = {}
-        self.volume = 0
-        self.clock_box = Gtk.Box()
-        self.args = sys.argv
+
+    def _setup_config_paths(self):
+        """Set up configuration paths based on the user's home directory."""
         self.home = os.path.expanduser("~")
         self.config_path = os.path.join(self.home, ".config/hyprpanel")
         self.dockbar_config = os.path.join(self.config_path, "dockbar.toml")
@@ -98,158 +107,37 @@ class Panel(Adw.Application):
         self.window_notes_config = os.path.join(self.config_path, "window-config.toml")
         self.cmd_config = os.path.join(self.config_path, "cmd.toml")
         self.psutil_store = {}
-        self.panel_cfg = self.load_topbar_config()
-        self.dock = Dockbar(
-            application_id="com.github.dockbar",
-        )
-        self.icon_theme_list = Gtk.IconTheme().get_icon_names()
-        self.active_window_changed = None
 
     def on_activate(self, app):
-        self.top_panel_box_left.add_css_class("top_panel_box_left")
-        self.top_panel_box_right.add_css_class("top_panel_box_right")
-        self.top_panel_box_systray.add_css_class("top_panel_box_systray")
-        self.top_panel_box_center.add_css_class("top_panel_box_center")
-        self.top_panel_box_full.add_css_class("top_panel_box_full")
-        panel_on_top = "TOP"
-        exclusive = True
-        all_panels_enabled = True
         self.instance = self.HyprlandInstance()
-        default_panel = True
-
+        self.monitor_width_height()
         # start cmd output session, cmd.toml
         self.cmd_output()
+        self.close_fullscreen_buttons()
+        self.setup_panels()
+        self.setup_clock_widget()
+        self.update_widget_with_timeout()
+        self.setup_background_panel_widgets()
+        self.setup_panel_buttons()
+        self.setup_panel_position()
+        self.setup_gestures()
+        self.show_panels()
 
+    def monitor_width_height(self):
         # get monitor info and set the width, height for the panel
         monitor_info = self.get_monitor_info()
         for monitor_name in monitor_info:
             if self.instance.get_monitor_by_name(name=monitor_name).is_focused:
                 self.monitor_width, self.monitor_height = monitor_info[monitor_name]
-
-        if "--custom" in self.args:
-            default_panel = False
-
-        if "--background" in self.args:
-            panel_on_top = "BOTTOM"
-            exclusive = False
-
-        # panel.cfg setup
-        with open(self.topbar_config, "r") as f:
-            panel_toml = toml.load(f)
-            for p in panel_toml:
-                if "bottom" == p:
-                    exclusive = True
-                    if panel_toml[p]["Exclusive"] == "False":
-                        exclusive = False
-
-                    position = panel_toml[p]["position"]
-                    self.bottom_panel = CreatePanel(
-                        app, "BOTTOM", position, exclusive, 32, 0, "BottomBar"
-                    )
-                if "right" == p:
-                    exclusive = True
-                    if panel_toml[p]["Exclusive"] == "False":
-                        exclusive = False
-                    position = panel_toml[p]["position"]
-                    self.right_panel = CreatePanel(
-                        app, "RIGHT", position, exclusive, 0, 32, "RightBar"
-                    )
-                if "left" == p:
-                    exclusive = True
-                    if panel_toml[p]["Exclusive"] == "False":
-                        exclusive = False
-                    position = panel_toml[p]["position"]
-                    self.left_panel = CreatePanel(
-                        app, "LEFT", position, exclusive, 0, 32, "LeftBar"
-                    )
-                if "top" == p:
-                    exclusive = True
-                    if panel_toml[p]["Exclusive"] == "False":
-                        exclusive = False
-                    position = panel_toml[p]["position"]
-                    self.top_panel = CreatePanel(
-                        app,
-                        "TOP",
-                        position,
-                        exclusive,
-                        self.monitor_width,
-                        24,
-                        "TopBar",
-                    )
-                if "top_background" == p:
-                    exclusive = True
-                    if panel_toml[p]["Exclusive"] == "False":
-                        exclusive = False
-                    position = panel_toml[p]["position"]
-                    self.top_panel_background = CreatePanel(
-                        app,
-                        "TOP",
-                        position,
-                        exclusive,
-                        self.monitor_width,
-                        18,
-                        "TopBarBackground",
-                    )
-
-        # load css
-        css_provider = Gtk.CssProvider()
-        css_provider.load_from_file(Gio.File.new_for_path(self.style_css_config))
-        Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
-            css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
-        )
-
-        # clock widget
-        self.clock_box.set_halign(Gtk.Align.CENTER)
-        self.clock_box.set_hexpand(True)
-        self.clock_box.set_baseline_position(Gtk.BaselinePosition.CENTER)
-        self.clock_box.add_css_class("Clock")
-        self.clock_button = self.utils.CreateButton(
-            "gnome-panel-clock-symbolic", "cal", "ClockButton"
-        )
-        self.clock_button.set_label(datetime.now().strftime("%d %A %H:%M"))
-        self.clock_button.set_halign(Gtk.Align.CENTER)
-        self.clock_button.set_hexpand(True)
-        self.clock_box.append(self.clock_button)
-
-        # clock widget
-        self.clock_box1 = Gtk.Box()
-        self.clock_box1.set_halign(Gtk.Align.CENTER)
-        self.clock_box1.set_hexpand(True)
-
-        # self.clock_button1 = Gtk.Button()
-        # self.clock_box1.append(self.clock_button1)
-        # self.clock_box.append(self.clock_box1)
-        # ww = Gtk.Dialog()
-        # self.popover = Gtk.Popover()
-        # self.popover.set_parent(ww)
-        # self.utils.CreateGesture(self.clock_button1, 1, self.myapprun)
-
-        # close and full screen buttons at the topbar
-        self.cf_box = Gtk.Box()
-        self.close_button = self.utils.CreateButton(
-            "close-symbolic", "hyprctl dispatch killactive", "cf_button"
-        )
-        self.fullscreen_button = self.utils.CreateButton(
-            "gtk-fullscreen", "hyprctl dispatch fullscreen", "cf_button"
-        )
-        self.cf_box.append(self.close_button)
-        self.cf_box.append(self.fullscreen_button)
-        self.cf_box.add_css_class("cf_box")
-        self.top_panel_box_left.append(self.cf_box)
+                   
+    def setup_menus(self):
+        for menu in self.menus.values():
+            self.top_panel_box_systray.append(menu)
+            menu.add_css_class("systray")
+            self.top_panel_box_systray.set_halign(Gtk.Align.END)
+            self.top_panel_box_systray.set_hexpand(True)
         
-        #update widgets
-        GLib.timeout_add(1000, self.update_clock)
-        GLib.timeout_add(200, self.update_widgets)
-        GLib.timeout_add(200, self.update_title_topbar)
-        GLib.timeout_add(10000, self.mullvad_status)
-        GLib.timeout_add(600000, self.clean_pid_store)
-
-        # volumebutton = Gtk.VolumeButton.new()
-        # volumebutton.connect("value-changed",self.on_volume_value_changed)
-        # volbox.append(volumebutton)
-
+    def setup_background_panel_widgets(self):
         # notes label
         self.todo_button = Adw.ButtonContent()
         self.todo_button.add_css_class("todo_label")
@@ -262,33 +150,7 @@ class Panel(Adw.Application):
             GLib.timeout_add(600000, self.todo_txt)
         except IndexError:
             print("todo.txt is empity or does not exist")
-
-        self.top_panel_box_right.set_halign(Gtk.Align.FILL)
-        self.top_panel_box_right.set_homogeneous(True)
-        self.top_panel_box_right.set_hexpand(True)
-        self.menus = self.create_new_menu()
-        # create menus
-        for menu in self.menus.values():
-            self.top_panel_box_systray.append(menu)
-            menu.add_css_class("systray")
-            self.top_panel_box_systray.set_halign(Gtk.Align.END)
-            self.top_panel_box_systray.set_hexpand(True)
-
-        # gesture space for clicks
-        self.top_panel_box_center.append(self.clock_box)
-
-        self.iconbox = Gtk.Box(spacing=0)
-        self.icon_title = self.utils.CreateButton("kitty", "nwg-drawer", "kitty")
-        self.iconbox.append(self.icon_title)
-        # self.top_panel_box_left.append(self.iconbox)
-
-        # setup window title
-        self.window_title = Adw.ButtonContent()
-        self.top_panel_box_left.append(self.window_title)
-
-        self.window_title.add_css_class("WindowTitle")
-
-        # setup label for top bar background
+        
         self.tbbox = Gtk.Box(spacing=20)
         self.tblabelspace = Gtk.Label(label="    ")
         self.tbworkspace = self.utils.btn_background(
@@ -337,15 +199,27 @@ class Panel(Adw.Application):
 
         # self.tbSIGKILL.connect("clicked", self.sigkill_activewindow)
         self.top_panel_background.set_content(self.tbbox)
+        
 
-        EventScroll = Gtk.EventControllerScroll.new(
-            Gtk.EventControllerScrollFlags.BOTH_AXES
-        )
-        EventScroll.connect("scroll", self.scroll_event)
-        self.top_panel_box_full.add_controller(EventScroll)
+    def update_widget_with_timeout(self):
+        GLib.timeout_add(1000, self.update_clock)
+        GLib.timeout_add(200, self.update_widgets)
+        GLib.timeout_add(200, self.update_title_topbar)
+        GLib.timeout_add(10000, self.mullvad_status)
+        GLib.timeout_add(600000, self.clean_pid_store)
+          
+    def show_panels(self):
+        if self.all_panels_enabled:
+            print("okay" * 100)
 
-        # create panel buttons
-        if default_panel:
+            self.dock.do_start()
+            self.top_panel.present()
+            self.right_panel.present()
+            self.top_panel_background.present()
+            print("okay" * 100)
+                
+    def setup_panel_buttons(self):
+        if self.default_panel:
             workspace_buttons = self.utils.CreateFromAppList(
                 "vertical", self.workspace_list_config, "RightBar"
             )
@@ -356,57 +230,11 @@ class Panel(Adw.Application):
             self.dockbar_config, workspace_buttons = self.create_widgets(
                 "horizontal", "TopBar"
             )
-            all_panels_enabled = False
-            self.top_panel.present()
-
-        # this whole section is intended to setup custom panel positions and widgets
-        if "--topbar-apps" in self.args:
-            self.top_panel.set_content(self.dockbar_config)
-        if "--topbar-workspaces" in self.args:
-            self.top_panel.set_content(workspace_buttons)
-        if "--topbar-todo" in self.args:
-            self.top_panel.set_content(self.todo_label_box)
-
-        if [i for i in self.args if "rightbar" in i]:
-            self.dockbar_config, workspace_buttons = self.create_widgets(
-                "vertical", "RightBar"
-            )
-            all_panels_enabled = False
-            self.right_panel.present()
-        if "--rightbar-apps" in self.args:
-            self.right_panel.set_content(self.dockbar_config)
-        if "--rightbar-workspaces" in self.args:
-            self.right_panel.set_content(workspace_buttons)
-        if "--rightbar-todo" in self.args:
-            self.right_panel.set_content(self.todo_label_box)
-
-        if [i for i in self.args if "leftbar" in i]:
-            self.dockbar_config, workspace_buttons = self.create_widgets(
-                "vertical", "LeftBar"
-            )
-            all_panels_enabled = False
-            self.left_panel.present()
-        if "--leftbar-apps" in self.args:
-            self.left_panel.set_content(self.dockbar_config)
-        if "--leftbar-workspaces" in self.args:
-            self.left_panel.set_content(workspace_buttons)
-        if "--leftbar-todo" in self.args:
-            self.left_panel.set_content(self.todo_label_box)
-
-        if [i for i in self.args if "bottombar" in i]:
-            self.dockbar_config, workspace_buttons = self.create_widgets(
-                "horizontal", "BottomBar"
-            )
-            all_panels_enabled = False
-            self.bottom_panel.present()
-        if "--bottombar-apps" in self.args:
-            self.bottom_panel.set_content(self.dockbar_config)
-        if "--bottombar-workspaces" in self.args:
-            self.bottom_panel.set_content(workspace_buttons)
-        if "--bottombar-todo" in self.args:
-            self.bottom_panel.set_content(self.todo_label_box)
-
-        # gestures
+            self.all_panels_enabled = False
+            self.top_panel.present()        
+                
+    def setup_gestures(self):
+        # Setting up gestures for various UI components
         self.utils.CreateGesture(self.todo_button, 1, self.take_note_app)
         self.utils.CreateGesture(self.clock_box, 1, self.notify_client)
         self.utils.CreateGesture(self.window_title, 1, self.manage_window_notes)
@@ -414,39 +242,206 @@ class Panel(Adw.Application):
         self.utils.CreateGesture(self.tbclass, 3, self.dock.join_windows)
         self.utils.CreateGesture(self.tbSIGKILL, 1, self.sigkill_activewindow)
         self.utils.CreateGesture(self.tbvol, 1, self.toggle_mute_from_sink)
-        self.utils.CreateGesture(
-            self.top_panel_box_left, 2, self.left_gesture_middle_click
-        )
-        self.utils.CreateGesture(
-            self.top_panel_box_left, 3, self.left_gesture_right_click
-        )
-        # self.utils.CreateGesture(self.top_panel_box_center, 1, self.center_gesture_left_click)
-        self.utils.CreateGesture(
-            self.top_panel_box_center, 2, self.center_gesture_middle_click
-        )
-        self.utils.CreateGesture(
-            self.top_panel_box_center, 3, self.center_gesture_right_click
-        )
-        self.utils.CreateGesture(
-            self.top_panel_box_right, 1, self.right_gesture_left_click
-        )
-        self.utils.CreateGesture(
-            self.top_panel_box_right, 2, self.left_gesture_middle_click
-        )
-        self.utils.CreateGesture(
-            self.top_panel_box_right, 3, self.left_gesture_right_click
-        )
-
-        # show all panels
-        if all_panels_enabled:
-            print("okay" * 100)
-
-            self.dock.do_start()
-            self.top_panel.present()
+    
+        # Gestures for left panel
+        self.utils.CreateGesture(self.top_panel_box_left, 2, self.left_gesture_middle_click)
+        self.utils.CreateGesture(self.top_panel_box_left, 3, self.left_gesture_right_click)
+    
+        # Gestures for center panel
+        self.utils.CreateGesture(self.top_panel_box_center, 2, self.center_gesture_middle_click)
+        self.utils.CreateGesture(self.top_panel_box_center, 3, self.center_gesture_right_click)
+    
+        # Gestures for right panel
+        self.utils.CreateGesture(self.top_panel_box_right, 1, self.right_gesture_left_click)
+        self.utils.CreateGesture(self.top_panel_box_right, 2, self.left_gesture_middle_click)
+        self.utils.CreateGesture(self.top_panel_box_right, 3, self.left_gesture_right_click)
+    
+        # Adding scroll event to the full panel
+        EventScroll = Gtk.EventControllerScroll.new(Gtk.EventControllerScrollFlags.BOTH_AXES)
+        EventScroll.connect("scroll", self.scroll_event)
+        self.top_panel_box_full.add_controller(EventScroll)
+    
+    def close_fullscreen_buttons(self):
+        # Creating close and full screen buttons for the top bar
+        self.cf_box = Gtk.Box()
+        self.close_button = self.utils.CreateButton("close-symbolic", "hyprctl dispatch killactive", "cf_button")
+        self.fullscreen_button = self.utils.CreateButton("gtk-fullscreen", "hyprctl dispatch fullscreen", "cf_button")
+        self.cf_box.append(self.close_button)
+        self.cf_box.append(self.fullscreen_button)
+        self.cf_box.add_css_class("cf_box")
+        self.top_panel_box_left.append(self.cf_box)
+    
+    def setup_clock_widget(self):
+        # Configuring the clock widget for display
+        self.clock_box.set_halign(Gtk.Align.CENTER)
+        self.clock_box.set_hexpand(True)
+        self.clock_box.set_baseline_position(Gtk.BaselinePosition.CENTER)
+        self.clock_box.add_css_class("Clock")
+    
+        # Creating clock button with current date and time
+        self.clock_button = self.utils.CreateButton("gnome-panel-clock-symbolic", "cal", "ClockButton")
+        self.clock_button.set_label(datetime.now().strftime("%d %A %H:%M"))
+        self.clock_button.set_halign(Gtk.Align.CENTER)
+        self.clock_button.set_hexpand(True)
+        self.clock_box.append(self.clock_button)
+    
+        # Adding the clock widget to the center panel
+        self.clock_box1 = Gtk.Box()
+        self.clock_box1.set_halign(Gtk.Align.CENTER)
+        self.clock_box1.set_hexpand(True)
+        self.top_panel_box_center.append(self.clock_box)
+       
+    def setup_panel_position(self):
+        """
+        Set up the position and content of various panels based on the command-line arguments.
+    
+        This method is responsible for configuring custom panel positions and widgets 
+        based on the provided command-line arguments.
+        """
+    
+        # Configuring the top panel based on command-line arguments
+        if "--topbar-apps" in self.args:
+            self.top_panel.set_content(self.dockbar_config)
+        elif "--topbar-workspaces" in self.args:
+            self.top_panel.set_content(workspace_buttons)
+        elif "--topbar-todo" in self.args:
+            self.top_panel.set_content(self.todo_label_box)
+    
+        # Configuring the right panel based on command-line arguments
+        if any("rightbar" in i for i in self.args):
+            self.dockbar_config, workspace_buttons = self.create_widgets("vertical", "RightBar")
+            self.all_panels_enabled = False
             self.right_panel.present()
-            # self.left_panel.present()
-            self.top_panel_background.present()
-            print("okay" * 100)
+        elif "--rightbar-apps" in self.args:
+            self.right_panel.set_content(self.dockbar_config)
+        elif "--rightbar-workspaces" in self.args:
+            self.right_panel.set_content(workspace_buttons)
+        elif "--rightbar-todo" in self.args:
+            self.right_panel.set_content(self.todo_label_box)
+    
+        # Configuring the left panel based on command-line arguments
+        if any("leftbar" in i for i in self.args):
+            self.dockbar_config, workspace_buttons = self.create_widgets("vertical", "LeftBar")
+            self.all_panels_enabled = False
+            self.left_panel.present()
+        elif "--leftbar-apps" in self.args:
+            self.left_panel.set_content(self.dockbar_config)
+        elif "--leftbar-workspaces" in self.args:
+            self.left_panel.set_content(workspace_buttons)
+        elif "--leftbar-todo" in self.args:
+            self.left_panel.set_content(self.todo_label_box)
+    
+        # Configuring the bottom panel based on command-line arguments
+        if any("bottombar" in i for i in self.args):
+            self.dockbar_config, workspace_buttons = self.create_widgets("horizontal", "BottomBar")
+            self.all_panels_enabled = False
+            self.bottom_panel.present()
+        elif "--bottombar-apps" in self.args:
+            self.bottom_panel.set_content(self.dockbar_config)
+        elif "--bottombar-workspaces" in self.args:
+            self.bottom_panel.set_content(workspace_buttons)
+        elif "--bottombar-todo" in self.args:
+            self.bottom_panel.set_content(self.todo_label_box)
+
+            
+    def load_css_from_file(self):
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_file(Gio.File.new_for_path(self.style_css_config))
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
+        
+    def setup_panels(self):
+        self.top_panel_box_left.add_css_class("top_panel_box_left")
+        self.top_panel_box_right.add_css_class("top_panel_box_right")
+        self.top_panel_box_systray.add_css_class("top_panel_box_systray")
+        self.top_panel_box_center.add_css_class("top_panel_box_center")
+        self.top_panel_box_full.add_css_class("top_panel_box_full")
+        self.panel_on_top = "TOP"
+        self.exclusive = True
+        self.all_panels_enabled = True
+        
+        self.load_css_from_file()
+        
+        self.top_panel_box_right.set_halign(Gtk.Align.FILL)
+        self.top_panel_box_right.set_homogeneous(True)
+        self.top_panel_box_right.set_hexpand(True)
+        
+        # setup window title
+        self.window_title = Adw.ButtonContent()
+        self.top_panel_box_left.append(self.window_title)
+        self.window_title.add_css_class("WindowTitle")
+        
+        self.menus = self.create_new_menu()
+        self.setup_menus()
+
+        if "--custom" in self.args:
+            self.default_panel = False
+
+        if "--background" in self.args:
+            panel_on_top = "BOTTOM"
+            self.exclusive = False
+            
+        self.default_panel = True
+        with open(self.topbar_config, "r") as f:
+            panel_toml = toml.load(f)
+            for p in panel_toml:
+                if "bottom" == p:
+                    self.exclusive = True
+                    if panel_toml[p]["Exclusive"] == "False":
+                        self.exclusive = False
+
+                    position = panel_toml[p]["position"]
+                    self.bottom_panel = CreatePanel(
+                        app, "BOTTOM", position, self.exclusive, 32, 0, "BottomBar"
+                    )
+                if "right" == p:
+                    self.exclusive = True
+                    if panel_toml[p]["Exclusive"] == "False":
+                        self.exclusive = False
+                    position = panel_toml[p]["position"]
+                    self.right_panel = CreatePanel(
+                        app, "RIGHT", position, self.exclusive, 0, 32, "RightBar"
+                    )
+                if "left" == p:
+                    self.exclusive = True
+                    if panel_toml[p]["Exclusive"] == "False":
+                        self.exclusive = False
+                    position = panel_toml[p]["position"]
+                    self.left_panel = CreatePanel(
+                        app, "LEFT", position, self.exclusive, 0, 32, "LeftBar"
+                    )
+                if "top" == p:
+                    self.exclusive = True
+                    if panel_toml[p]["Exclusive"] == "False":
+                        self.exclusive = False
+                    position = panel_toml[p]["position"]
+                    self.top_panel = CreatePanel(
+                        app,
+                        "TOP",
+                        position,
+                        self.exclusive,
+                        self.monitor_width,
+                        24,
+                        "TopBar",
+                    )
+                if "top_background" == p:
+                    self.exclusive = True
+                    if panel_toml[p]["Exclusive"] == "False":
+                        self.exclusive = False
+                    position = panel_toml[p]["position"]
+                    self.top_panel_background = CreatePanel(
+                        app,
+                        "TOP",
+                        position,
+                        self.exclusive,
+                        self.monitor_width,
+                        18,
+                        "TopBarBackground",
+                    )
+        
 
     def mullvad_status(self):
         """
