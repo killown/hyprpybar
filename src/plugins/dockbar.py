@@ -1,23 +1,23 @@
 import os
 import toml
 import gi
+import json
+import psutil
+from subprocess import Popen, call, check_output as out
+from collections import ChainMap
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk
 from ..core.create_panel import *
-from subprocess import Popen
 from ..core.utils import Utils
 from hyprpy import Hyprland
-from collections import ChainMap
-from subprocess import call, check_output as out
-import json
-import psutil
-
 
 class Dockbar(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        
+        # Initialize Utils and set configuration paths
         self.utils = Utils()
         self.home = os.path.expanduser("~")
         self.config_path = os.path.join(self.home, ".config/hyprpanel")
@@ -32,14 +32,13 @@ class Dockbar(Adw.Application):
         self.panel_cfg = self.utils.load_topbar_config()
         self.instance = self.HyprlandInstance()
 
+    # Start the Dockbar application
     def do_start(self):
         with open(self.topbar_config, "r") as f:
             panel_toml = toml.load(f)
             for p in panel_toml:
                 if "bottom" == p:
-                    exclusive = True
-                    if panel_toml[p]["Exclusive"] == "False":
-                        exclusive = False
+                    exclusive = panel_toml[p]["Exclusive"] == "True"
                     position = panel_toml[p]["position"]
                     self.bottom_panel = CreatePanel(
                         self, "BOTTOM", position, exclusive, 32, 0, "BottomBar"
@@ -50,42 +49,45 @@ class Dockbar(Adw.Application):
                     self.bottom_panel.set_content(self.dockbar)
                     self.bottom_panel.present()
 
+    # Append a window to the dockbar
     def dockbar_append(self, *_):
         w = self.instance.get_active_window()
         initial_title = w.initial_title.lower()
-        icon = initial_title
-        cmd = initial_title
-        if initial_title == "zsh" or initial_title == "bash":
-            title = w.title.split(" ")[0]
-            cmd = "kitty --hold {0}".format(title)
-            icon = title
-        try:
-            # some classes does not correspond the icon name, quick fix
-            icon = self.panel_cfg["change_icon_title"][icon]
-        except Exception as e:
-            print(e)
+        icon = cmd = initial_title
 
+        # Adjusting for special cases like zsh or bash
+        if initial_title in ["zsh", "bash"]:
+            title = w.title.split(" ")[0]
+            cmd = f"kitty --hold {title}"
+            icon = title
+
+        # Handling icon mapping
+        try:
+            icon = self.panel_cfg["change_icon_title"][icon]
+        except KeyError:
+            print(f"Icon mapping not found for {icon}")
+
+        # Update the dockbar configuration
         with open(self.dockbar_config, "r") as f:
             config = toml.load(f)
-
         new_data = {initial_title: {"cmd": cmd, "icon": icon}}
-
         updated_data = ChainMap(new_data, config)
-
         with open(self.dockbar_config, "w") as f:
             toml.dump(updated_data, f)
 
+        # Create and append button to the dockbar
         button = self.utils.CreateButton(icon, cmd, initial_title)
         self.dockbar.append(button)
 
+    # Remove a command from the dockbar configuration
     def dockbar_remove(self, cmd):
         with open(self.dockbar_config, "r") as f:
             config = toml.load(f)
-
         del config[cmd]
         with open(self.dockbar_config, "w") as f:
             toml.dump(config, f)
 
+    # Join multiple windows of the same class into one workspace
     def join_windows(self, *_):
         activewindow = out("hyprctl activewindow".split()).decode()
         wclass = activewindow.split("class: ")[-1].split("\n")[0]
@@ -94,36 +96,29 @@ class Dockbar(Adw.Application):
         clients = json.loads(j)
         for client in clients:
             if wclass in client["class"]:
-                move_clients = (
-                    "hyprctl dispatch movetoworkspace {0},address:{1}".format(
-                        activeworkspace, client["address"]
-                    ).split()
-                )
-                gotoworkspace = "hyprctl dispatch workspace name:{0}".format(
-                    activeworkspace
-                ).split()
-                # move all windows that belongs to the same class from active window to the current workspace
+                move_clients = f"hyprctl dispatch movetoworkspace {activeworkspace},address:{client['address']}".split()
+                gotoworkspace = f"hyprctl dispatch workspace name:{activeworkspace}".split()
                 call(move_clients)
                 call(gotoworkspace)
 
+    # Launch a docked application
     def dock_launcher(self, cmd):
         processes = psutil.process_iter()
         for process in processes:
             if process.name() in cmd or cmd in process.name():
-                call("hyprctl dispatch workspace name:{0}".format(cmd).split())
+                call(f"hyprctl dispatch workspace name:{cmd}".split())
                 return
-
         if ";" in cmd:
             for line in cmd.split(";"):
                 try:
-                    call("hyprctl dispatch workspace name:{0}".format(cmd).split())
+                    call(f"hyprctl dispatch workspace name:{cmd}".split())
                     Popen(line.split(), start_new_session=True)
-
                 except Exception as e:
                     print(e)
         else:
-            call("hyprctl dispatch workspace name:{0}".format(cmd).split())
+            call(f"hyprctl dispatch workspace name:{cmd}".split())
             Popen(cmd.split(), start_new_session=True)
 
+    # Initialize Hyprland instance
     def HyprlandInstance(self):
         return Hyprland()
