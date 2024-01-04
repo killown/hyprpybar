@@ -238,7 +238,8 @@ class Panel(Adw.Application):
         self.cf_box.append(self.fullscreen_button)
         self.cf_box.add_css_class("cf_box")
         self.top_panel_box_left.append(self.cf_box)
-
+        
+        #update widgets
         GLib.timeout_add(1000, self.update_clock)
         GLib.timeout_add(200, self.update_widgets)
         GLib.timeout_add(200, self.update_title_topbar)
@@ -406,7 +407,6 @@ class Panel(Adw.Application):
             self.bottom_panel.set_content(self.todo_label_box)
 
         # gestures
-
         self.utils.CreateGesture(self.todo_button, 1, self.take_note_app)
         self.utils.CreateGesture(self.clock_box, 1, self.notify_client)
         self.utils.CreateGesture(self.window_title, 1, self.manage_window_notes)
@@ -414,9 +414,6 @@ class Panel(Adw.Application):
         self.utils.CreateGesture(self.tbclass, 3, self.dock.join_windows)
         self.utils.CreateGesture(self.tbSIGKILL, 1, self.sigkill_activewindow)
         self.utils.CreateGesture(self.tbvol, 1, self.toggle_mute_from_sink)
-        # self.utils.CreateGesture(
-        #    self.top_panel_box_left, 1, self.left_gesture_left_click
-        # )
         self.utils.CreateGesture(
             self.top_panel_box_left, 2, self.left_gesture_middle_click
         )
@@ -452,46 +449,68 @@ class Panel(Adw.Application):
             print("okay" * 100)
 
     def mullvad_status(self):
-        o = check_output("mullvad status".split()).decode()
-        if "Disconnected" in o:
-            mullvad = self.menus["VPN"]
-            mullvad.set_label("VPN Disconnected")
-        if "Connected" in o:
-            mullvad = self.menus["VPN"]
-            mullvad.set_label("VPN")
-
+        """
+        Check the status of the Mullvad VPN and update the menu label accordingly.
+    
+        This function checks the status of the Mullvad VPN by executing the "mullvad status" command,
+        and updates the label of the VPN menu item based on the status.
+    
+        Returns:
+            bool: Always returns True.
+        """
+        # Execute the "mullvad status" command and decode the output
+        output = check_output("mullvad status".split()).decode()
+        
+        # Update the menu label based on the output
+        if "Disconnected" in output:
+            vpn_menu = self.menus["VPN"]
+            vpn_menu.set_label("VPN Disconnected")
+        elif "Connected" in output:
+            vpn_menu = self.menus["VPN"]
+            vpn_menu.set_label("VPN")
+        
         return True
-
+    
     def take_note_app(self, *_):
+        """
+        Open the note-taking application specified in the configuration file.
+    
+        This function reads the configuration file to retrieve the command for the note-taking application,
+        and then executes the command to open the application.
+    
+        Args:
+            *_: Additional arguments (unused).
+    
+        Returns:
+            None
+        """
+        # Read the configuration file and load the configuration
         with open(self.topbar_config, "r") as f:
             config = toml.load(f)
+        
+        # Run the note-taking application using the specified command
         self.utils.run_app(config["take_note_app"]["cmd"])
-
-    def sink_cards_info(self):
-        pactl = "pactl list sinks short".split()
-        sink_inputs = check_output(pactl).decode()
-        cards = sink_inputs.split("\n")
-        for card in cards:
-            try:
-                card_id = card.split("alsa")[0].strip()
-                card_name = card.split("\talsa_output.")[1].split("\t")[0]
-                card_status = card.split("\talsa_output.")[1].split("\t")[3]
-                info = {}
-                info["card_id"] = card_id
-                info["card_name"] = card_name
-                info["card_status"] = card_status
-                return info
-            except Exception as e:
-                print(e)
-        return None
-
-    # def on_volume_value_changed(self, volumebutton, value):
-    # print(value)
-
+    
     def HyprlandInstance(self):
+        """
+        Create and return an instance of the Hyprland class.
+    
+        Returns:
+            Hyprland: An instance of the Hyprland class.
+        """
         return Hyprland()
-
+    
     def get_monitor_info(self):
+        """
+        Retrieve information about the connected monitors.
+    
+        This function retrieves information about the connected monitors, such as their dimensions and names,
+        and returns the information as a dictionary.
+    
+        Returns:
+            dict: A dictionary containing information about the connected monitors.
+        """
+        # Get the default display and retrieve information about the connected monitors
         screen = Gdk.Display.get_default()
         monitors = screen.get_monitors()
         monitor_info = {}
@@ -500,15 +519,38 @@ class Panel(Adw.Application):
             monitor_height = monitor.get_geometry().height
             name = monitor.props.connector
             monitor_info[name] = [monitor_width, monitor_height]
+        
         return monitor_info
-
+    
     def HyprInfo(self):
+        """
+        Retrieve information about the active window.
+    
+        This function retrieves information about the active window, such as its window class and address,
+        and returns the information as a dictionary.
+    
+        Returns:
+            dict: A dictionary containing information about the active window.
+        """
         info = {}
         info["window_class"] = self.instance.get_active_window().initial_wm_class
         info["address"] = self.instance.get_active_window().address
         return info
-
+    
     def create_widgets(self, orientation, class_style):
+        """
+        Create widgets based on the specified orientation and class style.
+    
+        This function creates widgets, such as a dockbar and workspace buttons, based on the specified
+        orientation and class style, and returns the created widgets.
+    
+        Args:
+            orientation (str): The orientation of the widgets (e.g., "horizontal", "vertical").
+            class_style (str): The class style of the widgets.
+    
+        Returns:
+            tuple: A tuple containing the created dockbar and workspace buttons.
+        """
         dockbar = self.utils.CreateFromAppList(
             orientation, self.dockbar_config, class_style
         )
@@ -516,22 +558,79 @@ class Panel(Adw.Application):
             orientation, self.workspace_list_config, class_style
         )
         return dockbar, workspace_buttons
-
+    
     def todo_txt(self):
-        todo = os.path.join(self.home, "Documentos", "todo.txt")
-        txt = open(todo, "r").readlines()[-1]
-        self.todo_button.set_label(txt.strip())
+        """
+        Update the label of the TODO button with the last line from the TODO.txt file.
+    
+        This function reads the last line from the TODO.txt file and updates the label of the TODO button
+        with the content of the last line.
+    
+        Returns:
+            bool: Always returns True.
+        """
+        # Define the path to the TODO.txt file
+        todo_filepath = os.path.join(self.home, "Documentos", "todo.txt")
+        
+        # Read the last line from the TODO.txt file
+        last_line = open(todo_filepath, "r").readlines()[-1]
+        
+        # Update the label of the TODO button with the content of the last line
+        self.todo_button.set_label(last_line.strip())
+        
         return True
-
+    
     def on_button_press_event(self, widget, event):
+        """
+        Handle the button press event.
+    
+        This function handles the button press event by checking the type of the event and the button
+        that was pressed, and then performing the corresponding action.
+    
+        Args:
+            widget: The widget that emitted the event.
+            event: The event object containing information about the event.
+    
+        Returns:
+            None
+        """
         if event.type == Gdk.EventType.BUTTON_PRESS and event.button == 3:
             return True
-
+    
     def right_side_middle_click(self, gesture, data, x, y):
+        """
+        Handle the middle click gesture on the right side.
+    
+        This function handles the middle click gesture on the right side by executing the "kitty" command
+        to open the Kitty terminal emulator.
+    
+        Args:
+            gesture: The gesture object.
+            data: Additional data (unused).
+            x: The x-coordinate of the click.
+            y: The y-coordinate of the click.
+    
+        Returns:
+            None
+        """
         Popen("kitty".split())
-
+    
     def scroll_event(self, controller, _dx, dy):
-        # mouse whell down is 1.0, -1.0 wheel up
+        """
+        Handle the scroll event.
+    
+        This function handles the scroll event by checking the direction of the scroll and adjusting
+        the volume accordingly using the "pactl" command.
+    
+        Args:
+            controller: The controller object.
+            _dx: The horizontal delta (unused).
+            dy: The vertical delta representing the direction and speed of the scroll.
+    
+        Returns:
+            None
+        """
+        # Check the direction of the scroll and adjust the volume using the "pactl" command
         if dy > 0:
             self.utils.run_app("pactl -- set-sink-volume 0 -8%")
         else:
