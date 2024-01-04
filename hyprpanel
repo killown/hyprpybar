@@ -103,6 +103,7 @@ class Panel(Adw.Application):
             application_id="com.github.dockbar",
         )
         self.icon_theme_list = Gtk.IconTheme().get_icon_names()
+        self.active_window_changed = None
 
     def on_activate(self, app):
         self.top_panel_box_left.add_css_class("top_panel_box_left")
@@ -240,6 +241,7 @@ class Panel(Adw.Application):
 
         GLib.timeout_add(1000, self.update_clock)
         GLib.timeout_add(200, self.update_widgets)
+        GLib.timeout_add(200, self.update_title_topbar)
         GLib.timeout_add(10000, self.mullvad_status)
         GLib.timeout_add(600000, self.clean_pid_store)
 
@@ -409,7 +411,7 @@ class Panel(Adw.Application):
         self.utils.CreateGesture(self.clock_box, 1, self.notify_client)
         self.utils.CreateGesture(self.window_title, 1, self.window_notes)
         self.utils.CreateGesture(self.tbclass, 1, self.dock.dockbar_append)
-        self.utils.CreateGesture(self.tbclass, 3, self.window_notes)
+        self.utils.CreateGesture(self.tbclass, 3, self.dock.join_windows)
         self.utils.CreateGesture(self.tbSIGKILL, 1, self.sigkill_activewindow)
         self.utils.CreateGesture(self.tbvol, 1, self.toggle_mute_from_sink)
         # self.utils.CreateGesture(
@@ -570,15 +572,17 @@ class Panel(Adw.Application):
     def right_gesture_middle_click(self, gesture, data, x, y):
         cmd = self.panel_cfg["right_side_gestures"]["middle_click"]
         self.utils.run_app(cmd, True)
-        
+
     def simple_action(self):
-        action = Gio.SimpleAction(name="run-command", parameter_type=GLib.VariantType('s'))
+        action = Gio.SimpleAction(
+            name="run-command", parameter_type=GLib.VariantType("s")
+        )
         action.connect("activate", self.menu_run_action)
         app.add_action(action)
-        
+
     def menu_item(self, menu, name, cmd):
         menuitem = Gio.MenuItem.new(name, None)
-        menuitem.set_action_and_target_value("app.run-command", GLib.Variant('s', cmd)) 
+        menuitem.set_action_and_target_value("app.run-command", GLib.Variant("s", cmd))
         menu.append_item(menuitem)
 
     def NewMenu(self):
@@ -590,14 +594,14 @@ class Panel(Adw.Application):
                 continue
             menu = Gio.Menu()
             btn = Gtk.MenuButton(label=m)
-            btn.add_css_class("NewMenu") 
+            btn.add_css_class("NewMenu")
             btn.set_icon_name(menu_toml["icons"][m])
             btn.set_menu_model(menu)
             submenu = None
             dsubmenu = {}
             menu_buttons[m] = btn
             self.simple_action()
-            for item in menu_toml[m].values():                    
+            for item in menu_toml[m].values():
                 name = item[0]["name"]
                 cmd = item[0]["cmd"]
                 if "submenu" in item[0]:
@@ -605,7 +609,7 @@ class Panel(Adw.Application):
                     submenu = dsubmenu.get(submenu_label)
                     if submenu is None:
                         submenu = Gio.Menu()
-                        dsubmenu[submenu_label] = submenu 
+                        dsubmenu[submenu_label] = submenu
                     self.menu_item(submenu, name, cmd)
                 else:
                     self.menu_item(menu, name, cmd)
@@ -735,11 +739,48 @@ class Panel(Adw.Application):
                     volume = round(sink.volume.values[0] * 100)
                     self.tbvol.set_label("Volume: {0}%".format(volume))
                     self.tbcard.set_label("{0}".format(sink.description))
+                    
+    def update_title_topbar(self):
+        active_window = self.instance.get_active_window()
+        
+        #no update if in overview or focus still the same
+        if self.active_window_changed != active_window.address:
+            self.active_window_changed = active_window.address
+        else:
+            return True
+        if self.instance.get_workspace_by_name("OVERVIEW"):
+            return True
+        
+        try:
+            title = active_window.title[0:100]
+            wclass = active_window.initial_wm_class.lower()
+            initial_title = active_window.initial_title
+            if "www." in title:
+                title = title.split("www.")[1]
+            if " — " in title:
+                title = title.split(" — ")[0]
+            self.window_title.set_icon_name(wclass)
+            self.tbclass.set_icon_name(wclass)
+            self.window_title.set_label("{0}".format(title))
+            if initial_title == "zsh":
+                label = title.split(" ")[0]
+                icon_exist = [i for i in self.icon_theme_list if label in i]
+                if icon_exist:
+                    self.window_title.set_icon_name(label)
+                    self.tbclass.set_icon_name("{0}".format(label))
+            icon_exist = [i for i in self.icon_theme_list if wclass in i]
+            if not icon_exist:
+                icon = icon_exist[-1]
+                self.window_title.set_icon_name(icon)
+                self.tbclass.set_icon_name(icon)
+        except:
+            pass
+        return True
 
     def update_widgets(self):
         try:
             active_window = self.instance.get_active_window()
-            
+
             #disable widgets update when active window is fullscreen
             if not self.instance.get_workspace_by_name("OVERVIEW"):
                 return True
