@@ -265,7 +265,7 @@ class Panel(Adw.Application):
         self.top_panel_box_right.set_halign(Gtk.Align.FILL)
         self.top_panel_box_right.set_homogeneous(True)
         self.top_panel_box_right.set_hexpand(True)
-        self.menus = self.NewMenu()
+        self.menus = self.create_new_menu()
         # create menus
         for menu in self.menus.values():
             self.top_panel_box_systray.append(menu)
@@ -409,7 +409,7 @@ class Panel(Adw.Application):
 
         self.utils.CreateGesture(self.todo_button, 1, self.take_note_app)
         self.utils.CreateGesture(self.clock_box, 1, self.notify_client)
-        self.utils.CreateGesture(self.window_title, 1, self.window_notes)
+        self.utils.CreateGesture(self.window_title, 1, self.manage_window_notes)
         self.utils.CreateGesture(self.tbclass, 1, self.dock.dockbar_append)
         self.utils.CreateGesture(self.tbclass, 3, self.dock.join_windows)
         self.utils.CreateGesture(self.tbSIGKILL, 1, self.sigkill_activewindow)
@@ -573,22 +573,75 @@ class Panel(Adw.Application):
         cmd = self.panel_cfg["right_side_gestures"]["middle_click"]
         self.utils.run_app(cmd, True)
 
-    def simple_action(self):
-        action = Gio.SimpleAction(
-            name="run-command", parameter_type=GLib.VariantType("s")
-        )
+    def create_simple_action(self):
+        """
+        Create a simple action to run a command.
+    
+        This function creates a simple action named "run-command" that takes a string parameter.
+        It connects the "activate" signal of the action to the menu_run_action method.
+    
+        Args:
+            None
+    
+        Returns:
+            None
+        """
+        # Create a simple action with the specified name and parameter type
+        action = Gio.SimpleAction(name="run-command", parameter_type=GLib.VariantType("s"))
+        
+        # Connect the "activate" signal of the action to the menu_run_action method
         action.connect("activate", self.menu_run_action)
+        
+        # Add the action to the application
         app.add_action(action)
-
-    def menu_item(self, menu, name, cmd):
+    
+    def create_menu_item(self, menu, name, cmd):
+        """
+        Create a menu item with the specified name and command.
+    
+        This function creates a menu item with the specified name and command,
+        sets its action to "app.run-command" with the command as the target value,
+        and appends the menu item to the specified menu.
+    
+        Args:
+            menu (Gio.Menu): The menu to which the menu item should be appended.
+            name (str): The name of the menu item.
+            cmd (str): The command associated with the menu item.
+    
+        Returns:
+            None
+        """
+        # Create a new menu item with the specified name
         menuitem = Gio.MenuItem.new(name, None)
+        
+        # Set the action of the menu item to "app.run-command" with the command as the target value
         menuitem.set_action_and_target_value("app.run-command", GLib.Variant("s", cmd))
+        
+        # Append the menu item to the specified menu
         menu.append_item(menuitem)
-
-    def NewMenu(self):
+    
+    def create_new_menu(self):
+        """
+        Create a new menu based on the configuration file.
+    
+        This function reads the menu configuration from a TOML file,
+        creates a new menu based on the configuration, and returns a dictionary
+        containing the menu buttons associated with the created menus.
+    
+        Args:
+            None
+    
+        Returns:
+            dict: A dictionary containing the menu buttons associated with the created menus.
+        """
+        # Read the menu configuration from the specified file
         with open(self.menu_config, "r") as f:
             menu_toml = toml.load(f)
-            menu_buttons = {}
+        
+        # Initialize a dictionary to store the menu buttons
+        menu_buttons = {}
+        
+        # Iterate through the menu configuration and create the corresponding menus and menu items
         for m in menu_toml:
             if m == "icons":
                 continue
@@ -600,7 +653,7 @@ class Panel(Adw.Application):
             submenu = None
             dsubmenu = {}
             menu_buttons[m] = btn
-            self.simple_action()
+            self.create_simple_action()
             for item in menu_toml[m].values():
                 name = item[0]["name"]
                 cmd = item[0]["cmd"]
@@ -610,11 +663,13 @@ class Panel(Adw.Application):
                     if submenu is None:
                         submenu = Gio.Menu()
                         dsubmenu[submenu_label] = submenu
-                    self.menu_item(submenu, name, cmd)
+                    self.create_menu_item(submenu, name, cmd)
                 else:
-                    self.menu_item(menu, name, cmd)
+                    self.create_menu_item(menu, name, cmd)
             if dsubmenu:
                 [menu.append_submenu(k, dsubmenu[k]) for k in dsubmenu.keys()]
+        
+        # Return the dictionary containing the menu buttons
         return menu_buttons
 
     def sigkill_activewindow(self, *_):
@@ -671,181 +726,332 @@ class Panel(Adw.Application):
         disk_usage_process = io_counters[2] + io_counters[3]  # read_bytes + write_bytes
         return int(round(disk_usage_process / (1024**2), 2))
 
-    def window_notes(self, *_):
-        aw = self.instance.get_active_window()
-        ititle = aw.initial_title.lower()
-        wm_class = aw.initial_wm_class.lower()
-        title = aw.title
+    def manage_window_notes(self, *_):
+        """
+        Manage notes for the active window.
+    
+        This function retrieves information about the active window, such as its initial title
+        and window class, and updates a configuration file with this information. It also
+        manages the creation and opening of a Markdown file for notes related to the window.
+    
+        Args:
+            *_: Additional arguments (unused).
+    
+        Returns:
+            None
+        """
+        # Retrieve information about the active window
+        active_window = self.instance.get_active_window()
+        initial_title = active_window.initial_title.lower()
+        wm_class = active_window.initial_wm_class.lower()
+        title = active_window.title.lower()
+    
+        # Adjust the window class based on specific conditions
         if "firefox" in wm_class and "." in title:
             wm_class = title.split()[0]
-
-        if ititle == "zsh":
+        if initial_title == "zsh":
             wm_class = title.split()[0]
-
-        with open(self.window_notes_config, "r") as f:
-            wtoml = toml.load(f)
-
-        new_data = {wm_class: {"initial_title": ititle, "title": title.lower()}}
-        updated_data = ChainMap(new_data, wtoml)
-
-        with open(self.window_notes_config, "w") as f:
-            toml.dump(updated_data, f)
-
-        filepath = "/home/neo/Notes/{0}.md".format(wm_class)
-        cmd = "marktext {0}".format(filepath)
+    
+        # Load existing window notes from the configuration file
+        with open(self.window_notes_config, "r") as config_file:
+            existing_notes = toml.load(config_file)
+    
+        # Create a new entry for the active window and update the configuration
+        new_entry = {wm_class: {"initial_title": initial_title, "title": title}}
+        updated_notes = ChainMap(new_entry, existing_notes)
+    
+        # Save the updated notes back to the configuration file
+        with open(self.window_notes_config, "w") as config_file:
+            toml.dump(updated_notes, config_file)
+    
+        # Define the path and command for the Markdown file related to the window
+        filepath = f"/home/neo/Notes/{wm_class}.md"
+        cmd = f"marktext {filepath}"
+    
+        # Create the Markdown file if it doesn't exist
         if not os.path.isfile(filepath):
             Path(filepath).touch()
+    
+        # Print the command and run the Markdown editor application
         print(cmd)
         self.utils.run_app(cmd)
 
-    def output_loop(self, output, label):
-        output = check_output(output.split()).decode().strip()
-        label.set_markup(output)
-        GLib.Source.remove(self.exec_once)
-        return True
 
+    def output_loop(self, output, label):
+        """
+        Update the label with the output of a command.
+    
+        This function executes the specified command, captures its output, and updates
+        the label widget with the captured output.
+    
+        Args:
+            output (str): The command whose output will be displayed in the label.
+            label (Gtk.Label): The label widget to update with the command output.
+    
+        Returns:
+            bool: True if the label content is successfully updated, False otherwise.
+        """
+        # Execute the specified command and capture its output
+        command_output = check_output(output.split()).decode().strip()
+        
+        # Set the label content with the captured output using markup
+        label.set_markup(command_output)
+        
+        # Remove the previously scheduled source for single execution
+        GLib.Source.remove(self.exec_once)
+        
+        # Return True to indicate successful update
+        return True
+    
     def create_cmd_label(self, output, position, css_class, refresh):
+        """
+        Create and configure a label widget to display command output.
+    
+        This function creates a label widget with the specified CSS class and adds it to a box container 
+        based on the specified position. It also schedules periodic updates of the label content.
+    
+        Args:
+            output (str): The command whose output will be displayed in the label.
+            position (str): The position where the label should be added ('left', 'right', or 'center').
+            css_class (str): The CSS class to apply to the label and the box container.
+            refresh (int): The interval in milliseconds for refreshing the label content.
+    
+        Returns:
+            None
+        """
+        # Create a new label widget
         label = Gtk.Label()
+        
+        # Create a new box container
         box = Gtk.Box()
+        
+        # Configure the box container properties
         box.set_halign(Gtk.Align.END)
         box.set_hexpand(False)
         box.set_baseline_position(Gtk.BaselinePosition.BOTTOM)
+        
+        # Add the specified CSS class to the box container and the label
         box.add_css_class(css_class)
         label.add_css_class(css_class)
+        
+        # Add the label to the box container
         box.append(label)
+        
+        # Determine the position to add the box container and label
         if position == "left":
             self.top_panel_box_left.append(box)
-        if position == "right":
+        elif position == "right":
             self.top_panel_box_systray.append(box)
-        if position == "center":
+        elif position == "center":
             self.clock_box.append(box)
+        
+        # Schedule the periodic updates of the label content
         self.exec_once = GLib.timeout_add(1000, lambda: self.output_loop(output, label))
         GLib.timeout_add(refresh, lambda: self.output_loop(output, label))
-
+    
     def cmd_output(self):
-        with open(self.cmd_config, "r") as f:
-            cmd_toml = toml.load(f)
-        for t in cmd_toml:
-            cmd = cmd_toml[t]["cmd"]
-            position = cmd_toml[t]["position"]
-            refresh = cmd_toml[t]["refresh"]
-            css_class = cmd_toml[t]["css_class"]
-            self.create_cmd_label(cmd, position, css_class, refresh)
+        """
+        Read command settings from a configuration file and create corresponding command labels.
+    
+        This function reads command settings from a TOML configuration file, iterates through each setting,
+        and creates and configures the corresponding command label using the create_cmd_label function.
+    
+        Args:
+            None
+    
+        Returns:
+            None
+        """
+        # Read command settings from the configuration file
+        with open(self.cmd_config, "r") as config_file:
+            cmd_settings = toml.load(config_file)
+        
+        # Iterate through each command setting and create/configure the corresponding command label
+        for label_key in cmd_settings:
+            output = cmd_settings[label_key]["cmd"]
+            position = cmd_settings[label_key]["position"]
+            refresh = cmd_settings[label_key]["refresh"]
+            css_class = cmd_settings[label_key]["css_class"]
+            
+            # Create and configure the command label with the specified settings
+            self.create_cmd_label(output, position, css_class, refresh)
 
+
+                                              
     def volume_watch(self):
+        """
+        Watch for changes in the volume and update the volume and card labels accordingly.
+    
+        This function uses the `pulsectl` library to monitor the volume and updates the labels
+        with the current volume percentage and the description of the active audio sink.
+    
+        """
+        # Initialize PulseAudio client
         with pulsectl.Pulse("volume-increaser") as pulse:
+            
+            # Iterate through all the audio sinks
             for sink in pulse.sink_list():
+                
+                # Check if the sink is currently running (active)
                 if "running" in str(sink.state):
-                    volume = round(sink.volume.values[0] * 100)
-                    self.tbvol.set_label("Volume: {0}%".format(volume))
-                    self.tbcard.set_label("{0}".format(sink.description))
                     
+                    # Calculate the volume percentage and round it to the nearest whole number
+                    volume = round(sink.volume.values[0] * 100)
+                    
+                    # Update the volume label with the current volume percentage
+                    self.tbvol.set_label("Volume: {0}%".format(volume))
+                    
+                    # Update the card label with the description of the active audio sink
+                    self.tbcard.set_label("{0}".format(sink.description))
+    
+                        
     def update_title_topbar(self):
-        active_window = self.instance.get_active_window()
-        
-        #no update if in overview or focus still the same
-        if self.active_window_changed != active_window.address:
-            self.active_window_changed = active_window.address
-        else:
-            return True
-        if self.instance.get_workspace_by_name("OVERVIEW"):
-            return True
-        
-        try:
-            title = active_window.title[0:100]
-            wclass = active_window.initial_wm_class.lower()
-            initial_title = active_window.initial_title
-            try:
-                # exclusive try because if it fails, will not set the icon at all
-                wclass = self.panel_cfg["change_icon_title"][wclass]
-            except Exception as e:
-                # print(e)
-                pass
-            if "www." in title:
-                title = title.split("www.")[1]
-            if " — " in title:
-                title = title.split(" — ")[0]
-            self.window_title.set_icon_name(wclass)
-            self.tbclass.set_icon_name(wclass)
-            self.window_title.set_label("{0}".format(title))
-            if initial_title == "zsh":
-                label = title.split(" ")[0]
-                icon_exist = [i for i in self.icon_theme_list if label in i]
-                if icon_exist:
-                    self.window_title.set_icon_name(label)
-                    self.tbclass.set_icon_name("{0}".format(label))
-            icon_exist = [i for i in self.icon_theme_list if wclass in i]
-            if not icon_exist:
-                icon = icon_exist[-1]
-                self.window_title.set_icon_name(icon)
-                self.tbclass.set_icon_name(icon)
-        except:
-            pass
-        return True
-
-    def update_widgets(self):
+        """
+        Update the title bar based on the currently active window.
+    
+        Returns:
+            bool: True if the update was successful, False otherwise.
+        """
         try:
             active_window = self.instance.get_active_window()
-
-            #disable widgets update when active window is fullscreen
+            
+            # Skip update if the active window hasn't changed or if in the "OVERVIEW" workspace
+            if self.active_window_changed != active_window.address:
+                self.active_window_changed = active_window.address
+            else:
+                return True
+            if self.instance.get_workspace_by_name("OVERVIEW"):
+                return True
+            
+            
+            # Extract window information
+            title, wclass, initial_title = self.extract_window_info(active_window)
+            
+            # Apply custom icon if available
+            wclass = self.apply_custom_icon(wclass)
+            
+            # Modify title based on certain patterns
+            title = self.modify_title(title)
+            
+            # Update title and icon
+            self.update_title_and_icons(title, wclass, initial_title)
+            
+        except Exception as e:
+            # Handle exceptions
+            pass
+        
+        return True
+    
+    def update_widgets(self):
+        """
+        Update widgets based on the currently active window.
+    
+        Returns:
+            bool: True if the update was successful, False otherwise.
+        """
+        try:
+            active_window = self.instance.get_active_window()
+            
+            # Skip update if in fullscreen or in the "OVERVIEW" workspace
             if not self.instance.get_workspace_by_name("OVERVIEW"):
                 return True
             
-            initial_title = active_window.initial_title
-            title = active_window.title[0:100]
-            if "www." in title:
-                title = title.split("www.")[1]
-            workspace_id = active_window.workspace_id
-            pid = active_window.pid
-            wclass = active_window.initial_wm_class.lower()
-            try:
-                # exclusive try because if it fails, will not set the icon at all
-                wclass = self.panel_cfg["change_icon_title"][wclass]
-            except Exception as e:
-                # print(e)
-                pass
-
-            if pid not in self.psutil_store.keys():
-                process = psutil.Process(pid)
-                self.psutil_store[pid] = process
-
-            mem_usage = self.utils.convert_size(
-                int(self.psutil_store[pid].memory_info().rss)
-            )
-            exe = self.psutil_store[pid].exe()
-            cpu_usage = int(self.psutil_store[pid].cpu_percent())
-            if " — " in title:
-                title = title.split(" — ")[0]
-            title = "{0}".format(title)
-            self.window_title.set_label("{0}".format(title))
-            self.tbworkspace.set_label("W: {0}".format(workspace_id))
-            self.tbpid.set_label("PID: {0}".format(pid))
-            self.tbclass.set_label("{0}".format(wclass))
-            self.tbcpusage.set_label("CPU: {0}%".format(cpu_usage))
-            self.tbmemusage.set_label("MEM: {0}".format(mem_usage))
-            self.tbexe.set_label("Exe: {0}".format(exe))
-            self.tbdiskusage.set_label("Disk: {0}MB".format(self.disk_usage_by_pid()))
-            self.volume_watch()
-            self.window_title.set_icon_name(wclass)
-            self.tbclass.set_icon_name(wclass)
-            if initial_title == "zsh":
-                label = title.split(" ")[0]
-                icon_exist = [i for i in self.icon_theme_list if label in i]
-                if icon_exist:
-                    self.window_title.set_icon_name(label)
-                    self.tbclass.set_icon_name("{0}".format(label))
-            icon_exist = [i for i in self.icon_theme_list if wclass in i]
-            if not icon_exist:
-                icon = icon_exist[-1]
-                self.window_title.set_icon_name(icon)
-                self.tbclass.set_icon_name(icon)
+            # Extract window information
+            title, workspace_id, pid, wclass, initial_title = self.extract_widget_info(active_window)
+            
+            # Apply custom icon if available
+            wclass = self.apply_custom_icon(wclass)
+            
+            # Fetch and format process information
+            mem_usage, exe, cpu_usage = self.fetch_process_info(pid)
+            
+            # Modify title based on certain patterns
+            title = self.modify_title(title)
+            
+            # Update widget labels and icons
+            self.update_widget_labels(workspace_id, pid, wclass, cpu_usage, mem_usage, exe)
+            
+            # Update title and icon
+            self.update_title_and_icons(title, wclass, initial_title)
+            
         except Exception as e:
-            # print(e)
+            # Handle exceptions
             pass
-
+        
         return True
-
-
+    
+    # Helper methods
+    def extract_window_info(self, active_window):
+        """Extract and return window information."""
+        title = active_window.title[0:100]
+        wclass = active_window.initial_wm_class.lower()
+        initial_title = active_window.initial_title
+        return title, wclass, initial_title
+    
+    def extract_widget_info(self, active_window):
+        """Extract and return widget-related information."""
+        title = active_window.title[0:100]
+        workspace_id = active_window.workspace_id
+        pid = active_window.pid
+        wclass = active_window.initial_wm_class.lower()
+        initial_title = active_window.initial_title
+        return title, workspace_id, pid, wclass, initial_title
+    
+    def apply_custom_icon(self, wclass):
+        """Apply custom icon if available."""
+        try:
+            return self.panel_cfg["change_icon_title"][wclass]
+        except Exception as e:
+            pass
+        return wclass
+    
+    def fetch_process_info(self, pid):
+        """Fetch and return process information."""
+        if pid not in self.psutil_store.keys():
+            process = psutil.Process(pid)
+            self.psutil_store[pid] = process
+        mem_usage = self.utils.convert_size(int(self.psutil_store[pid].memory_info().rss))
+        exe = self.psutil_store[pid].exe()
+        cpu_usage = int(self.psutil_store[pid].cpu_percent())
+        return mem_usage, exe, cpu_usage
+    
+    def modify_title(self, title):
+        """Modify title based on certain patterns."""
+        if "www." in title:
+            title = title.split("www.")[1]
+        if " — " in title:
+            title = title.split(" — ")[0]
+        return title
+    
+    def update_title_and_icons(self, title, wclass, initial_title):
+        """Update title and icons."""
+        self.window_title.set_icon_name(wclass)
+        self.tbclass.set_icon_name(wclass)
+        self.window_title.set_label(title)
+        if initial_title == "zsh":
+            label = title.split(" ")[0]
+            icon_exist = [i for i in self.icon_theme_list if label in i]
+            if icon_exist:
+                self.window_title.set_icon_name(label)
+                self.tbclass.set_icon_name("{0}".format(label))
+        icon_exist = [i for i in self.icon_theme_list if wclass in i]
+        if not icon_exist:
+            icon = icon_exist[-1]
+            self.window_title.set_icon_name(icon)
+            self.tbclass.set_icon_name(icon)
+    
+    def update_widget_labels(self, workspace_id, pid, wclass, cpu_usage, mem_usage, exe):
+        """Update widget labels."""
+        self.tbworkspace.set_label("W: {0}".format(workspace_id))
+        self.tbpid.set_label("PID: {0}".format(pid))
+        self.tbclass.set_label("{0}".format(wclass))
+        self.tbcpusage.set_label("CPU: {0}%".format(cpu_usage))
+        self.tbmemusage.set_label("MEM: {0}".format(mem_usage))
+        self.tbexe.set_label("Exe: {0}".format(exe))
+        self.tbdiskusage.set_label("Disk: {0}MB".format(self.disk_usage_by_pid()))
+        self.volume_watch()
+    
+    
 app = Panel(application_id="com.hyprpanel.GtkApplication")
-
 app.run(None)
+    
