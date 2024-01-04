@@ -55,6 +55,7 @@ name = "Menu Label"
 [[MyMenu.item_2]]
 cmd = "command"
 name = "Menu Label"
+submenu = "submenu_name"
 
 ```
 
