@@ -17,16 +17,16 @@ The info panel is intended to be used with https://github.com/killown/hyprshell 
 
 ### Current features
 - Dockbar
-- info panel with lots of features
-- top panel with gnome look
-- css cutomizations
-- right panel for workspaces navigation
-- bar with all positions, on top (exclusive) or (background) behind all windows
-- Easily create custom menus with toml
-- config for custom gesture actions for mouse buttons and scrolling
-- config for custom gestures for top left and top right panel giving more possibilities of commands
-- Lightweight, low cpu usage, since it's not watching for bluetooth, network and some more stuff
-- increase and decrease sound volume with mouse wheel in the top bar
+- Information panel with numerous features
+- Top panel with a GNOME appearance
+- Custom CSS customizations
+- Panel for workspace navigation
+- Bar with various positions: on top (exclusive) or in the background behind all windows
+- Easily create custom menus using TOML
+- Configuration for custom gesture actions for mouse buttons and scrolling
+- Configuration for custom gestures for the top left and top right panels, offering more command possibilities
+- Lightweight with low CPU usage, as it doesn't monitor Bluetooth, network, and other functionalities
+- Adjust sound volume using the mouse wheel in the top bar.
 
 #### Info from focused window
 - CPU
