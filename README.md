@@ -1,6 +1,8 @@
 # Hyprpanel
 ##### _Gtk4/Adwaita panel made for hyprland_
 
+Hyprpanel doesn't implement systray and taskbar, and there are no plans to implement them.
+
 ### How to Install
 
 ```
