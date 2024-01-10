@@ -43,8 +43,8 @@ class Dockbar(Adw.Application):
                     self.bottom_panel = CreatePanel(
                         self, "BOTTOM", position, exclusive, 32, 0, "BottomBar"
                     )
-                    self.dockbar = self.utils.CreateFromAppList(
-                        "horizontal", self.dockbar_config, "BottomBar"
+                    self.dockbar = self.utils.CreateFromAppList(self.dockbar_config,
+                        "h", "BottomBar", self.join_windows
                     )
                     self.bottom_panel.set_content(self.dockbar)
                     self.bottom_panel.present()
@@ -96,7 +96,9 @@ class Dockbar(Adw.Application):
         clients = json.loads(j)
         for client in clients:
             if wclass in client["class"]:
+                print(wclass)
                 move_clients = f"hyprctl dispatch movetoworkspace {activeworkspace},address:{client['address']}".split()
+                print(move_clients)
                 gotoworkspace = f"hyprctl dispatch workspace name:{activeworkspace}".split()
                 call(move_clients)
                 call(gotoworkspace)

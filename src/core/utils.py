@@ -9,7 +9,7 @@ from gi.repository import Gtk4LayerShell as LayerShell
 from subprocess import Popen
 import math
 import pulsectl
-
+from hyprpy import Hyprland
 
 class Utils(Adw.Application):
     def __init__(self, **kwargs):
@@ -26,8 +26,21 @@ class Utils(Adw.Application):
         self.psutil_store = {}
         self.panel_cfg = self.load_topbar_config()
         
-    def run_app(self, cmd, cmd_mode=True):
-        print(cmd)
+    def run_app(self, cmd, wclass, cmd_mode=True):
+        
+        if wclass:
+            instance = Hyprland()
+            address_list = [i.address for i in instance.get_windows() if i.wm_class.lower() == wclass]
+            print(address_list, wclass)
+            if address_list:
+                address = address_list[0]
+                cmd = "hyprctl dispatch hyprshell:toggleoverview; hyprctl dispatch focuswindow address:{0};hyprctl dispatch fullscreen 1".format(address)
+                for c in cmd.split(";"):
+                    try:
+                        Popen(c.split(), start_new_session=True)
+                    except Exception as e:
+                        print(e)
+                return
         if "kitty --hold" in cmd and cmd_mode:
             try:
                 Popen(cmd.split(), start_new_session=True)
@@ -47,19 +60,33 @@ class Utils(Adw.Application):
             except Exception as e:
                 print(e)
                 
-    def CreateFromAppList(self, orientation, config, class_style):
+    def CreateFromAppList(self, config, orientation, class_style, callback=None):
+        if orientation == "h":
+            orientation = Gtk.Orientation.HORIZONTAL
+        if orientation == "v":
+            orientation = Gtk.Orientation.VERTICAL
+
         box = Gtk.Box(spacing=10, orientation=orientation)
+        print(config)
         with open(config, "r") as f:
             config = toml.load(f)
+
             for app in config:
+                wclass = None
+                try:
+                    wclass = config[app]["wclass"]
+                except:
+                    pass
                 button = self.CreateButton(
-                    config[app]["icon"], config[app]["cmd"], class_style
+                    config[app]["icon"], config[app]["cmd"], class_style, wclass
                 )
+                if callback is not None:
+                    self.CreateGesture(button, 3, callback)
                 box.append(button)
         return box
         
         
-    def CreateButton(self, icon_name, cmd, Class_Style):
+    def CreateButton(self, icon_name, cmd, Class_Style, wclass):
         box = Gtk.Box(spacing=0)
         icon = Gtk.Image(icon_name=icon_name)
         box.append(icon)
@@ -70,7 +97,7 @@ class Utils(Adw.Application):
         if cmd == "NULL":
             button.set_sensitive(False)
             return button
-        self.CreateGesture(button, 1, lambda *_: self.run_app(cmd))
+        self.CreateGesture(button, 1, lambda *_: self.run_app(cmd, wclass))
         self.CreateGesture(button, 3, lambda *_: self.dockbar_remove(icon_name))
         return button
         
@@ -80,7 +107,7 @@ class Utils(Adw.Application):
 
     def CreateGesture(self, widget, mouse_button, callback):
         gesture = Gtk.GestureClick.new()
-        gesture.connect("pressed", callback)
+        gesture.connect("released", callback)
         gesture.set_button(mouse_button)
         widget.add_controller(gesture)
         

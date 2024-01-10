@@ -16,10 +16,13 @@ gi.require_version("Adw", "1")
 from src.core.create_panel import *
 import asyncio
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk
+import dbus
+from dbus.mainloop.glib import DBusGMainLoop
 from datetime import datetime
 import json
 import sys
 import importlib
+import requests
 
 spam_loader = importlib.util.find_spec("hyprpy")
 found = spam_loader is not None
@@ -38,6 +41,7 @@ import toml
 from collections import ChainMap
 from src.plugins.dockbar import Dockbar
 from src.core.utils import Utils
+from src.core.dashboard import Dashboard
 
 
 class Panel(Adw.Application):
@@ -68,6 +72,7 @@ class Panel(Adw.Application):
         self.dock = Dockbar(application_id="com.github.dockbar")
         self.icon_theme_list = Gtk.IconTheme().get_icon_names()
         self.active_window_changed = None
+        self.notifications = []
 
     def _initialize_utilities(self):
         """Initialize utility functions and properties."""
@@ -76,12 +81,16 @@ class Panel(Adw.Application):
     def _setup_panel_boxes(self):
         """Setup panel boxes and related configurations."""
         self.top_panel_box_left = Gtk.Box(spacing=10)
-        self.top_panel_box_systray = Gtk.Box(spacing=0)
-        self.top_panel_box_right = Gtk.Box(spacing=6)
-        self.top_panel_grid_right = Gtk.Grid()
+        self.top_panel_box_systray = Gtk.Box(spacing=2)
+        self.top_panel_box_for_buttons = Gtk.Box(spacing=6)
+        self.top_panel_box_right = Gtk.Box(spacing=10)
+        self.top_panel_grid_right = Gtk.Grid(column_spacing=10)
         self.top_panel_grid_right.attach(self.top_panel_box_right, 1, 0, 1, 2)
         self.top_panel_grid_right.attach_next_to(
             self.top_panel_box_systray, self.top_panel_box_right, Gtk.PositionType.RIGHT, 1, 2
+        )
+        self.top_panel_grid_right.attach_next_to(
+            self.top_panel_box_for_buttons, self.top_panel_box_systray, Gtk.PositionType.RIGHT, 1, 2
         )
 
         self.top_panel_box_center = Gtk.Box(spacing=6)
@@ -98,6 +107,7 @@ class Panel(Adw.Application):
     def _setup_config_paths(self):
         """Set up configuration paths based on the user's home directory."""
         self.home = os.path.expanduser("~")
+        self.scripts = os.path.join(self.home, ".config/hypr/scripts")
         self.config_path = os.path.join(self.home, ".config/hyprpanel")
         self.dockbar_config = os.path.join(self.config_path, "dockbar.toml")
         self.style_css_config = os.path.join(self.config_path, "style.css")
@@ -106,6 +116,8 @@ class Panel(Adw.Application):
         self.menu_config = os.path.join(self.config_path, "menu.toml")
         self.window_notes_config = os.path.join(self.config_path, "window-config.toml")
         self.cmd_config = os.path.join(self.config_path, "cmd.toml")
+        self.topbar_launcher_config  = os.path.join(self.config_path, "topbar-launcher.toml")
+        self.cache_folder = os.path.join(self.home, ".cache/hyprpanel")
         self.psutil_store = {}
 
     def on_activate(self, app):
@@ -114,6 +126,7 @@ class Panel(Adw.Application):
         # start cmd output session, cmd.toml
         self.cmd_output()
         self.close_fullscreen_buttons()
+        self.right_position_launcher_topbar()
         self.setup_panels()
         self.setup_clock_widget()
         self.update_widget_with_timeout()
@@ -121,7 +134,19 @@ class Panel(Adw.Application):
         self.setup_panel_buttons()
         self.setup_panel_position()
         self.setup_gestures()
+        self.freedesktop_notifications()
         self.show_panels()
+
+
+
+    def freedesktop_notifications(self):
+        DBusGMainLoop(set_as_default=True)
+        bus = dbus.SessionBus()
+        string = (
+            "interface='org.freedesktop.Notifications',member='Notify', eavesdrop='true'"
+        )
+        #bus.add_match_string(string)
+        #bus.add_message_filter(self.notification_msg)
 
     def monitor_width_height(self):
         # get monitor info and set the width, height for the panel
@@ -129,6 +154,18 @@ class Panel(Adw.Application):
         for monitor_name in monitor_info:
             if self.instance.get_monitor_by_name(name=monitor_name).is_focused:
                 self.monitor_width, self.monitor_height = monitor_info[monitor_name]
+                
+    def notification_msg(self, bus, msg):
+        m = [str(m) for m in msg.get_args_list() if type(m) == dbus.String]
+        notification = " ".join(m)
+
+        #self.notifications.append(notification)
+        with open("/tmp/hyprpanel-notifications.txt","a") as file:
+            file.write("{0}\n".format(notification))
+            file.close()
+        with open("/tmp/hyprpanel-notifications.txt","r") as file:
+            #print(file.readlines())
+            print("")
                    
     def setup_menus(self):
         for menu in self.menus.values():
@@ -154,28 +191,25 @@ class Panel(Adw.Application):
         self.tbbox = Gtk.Box(spacing=20)
         self.tblabelspace = Gtk.Label(label="    ")
         self.tbworkspace = self.utils.btn_background(
-            "tbworkspace", "workspace-symbolic"
+            "tbworkspace", "workspace-overview"
         )
-        self.tbpid = self.utils.btn_background("tbpid", "view-process-tree")
-        self.tbpid_gesture = self.utils.CreateGesture(
-            self.tbpid, 1, self.copy_to_clipboard
-        )
+        self.tbpid = self.utils.btn_background("tbpid", "view-process-system")
         self.tbclass = self.utils.btn_background("tbclass", "cs-windows-symbolic")
         self.tbcpusage = self.utils.btn_background(
-            "tbcpusage", "cpu-frequency-indicator"
+            "tbcpusage", "cpu"
         )
         self.tbmemusage = self.utils.btn_background(
-            "tbmemusage", "indicator-sensors-memory"
+            "tbmemusage", "media-memory"
         )
         self.tbsinkinput = self.utils.btn_background(
             "tbsinkinput", "multimedia-volume-control-symbolic"
         )
         self.tbSIGKILL = self.utils.btn_background("tbSIGKILL", "window-close-symbolic")
         self.tbdiskusage = self.utils.btn_background(
-            "tbdiskusage", "disk-check-symbolic"
+            "tbdiskusage", "disk-usage-analyzer"
         )
         self.tbvol = self.utils.btn_background(
-            "tbvol", "multimedia-volume-control-symbolic"
+            "tbvol", "audio-volume-high-symbolic"
         )
         self.tbcard = self.utils.btn_background("tbvoltbcard", "audio-card")
         self.tbdiskusage.set_label("Disk Usage")
@@ -210,33 +244,36 @@ class Panel(Adw.Application):
           
     def show_panels(self):
         if self.all_panels_enabled:
-            print("okay" * 100)
-
             self.dock.do_start()
             self.top_panel.present()
             self.right_panel.present()
             self.top_panel_background.present()
-            print("okay" * 100)
                 
     def setup_panel_buttons(self):
         if self.default_panel:
-            workspace_buttons = self.utils.CreateFromAppList(
-                "vertical", self.workspace_list_config, "RightBar"
+            workspace_buttons = self.utils.CreateFromAppList(self.workspace_list_config,
+                "v",  "RightBar"
             )
             self.top_panel.set_content(self.top_panel_box_full)
             self.right_panel.set_content(workspace_buttons)
 
         if [i for i in self.args if "topbar" in i]:
-            self.dockbar_config, workspace_buttons = self.create_widgets(
-                "horizontal", "TopBar"
+            self.dockbar, workspace_buttons = self.create_widgets(
+                "h", "TopBar"
             )
             self.all_panels_enabled = False
             self.top_panel.present()        
+            
+            
+    def clock_dashboard(self, *_):
+        #self.dashboard = Dashboard(application_id="org.hyprpanel.dashboard",flags= Gio.ApplicationFlags.FLAGS_NONE)
+        #self.dashboard.run(sys.argv)
+        self.utils.run_app("python {0}/calendar.py".format(self.scripts))
                 
     def setup_gestures(self):
         # Setting up gestures for various UI components
         self.utils.CreateGesture(self.todo_button, 1, self.take_note_app)
-        self.utils.CreateGesture(self.clock_box, 1, self.notify_client)
+        self.utils.CreateGesture(self.clock_box, 1, self.clock_dashboard)
         self.utils.CreateGesture(self.window_title, 1, self.manage_window_notes)
         self.utils.CreateGesture(self.tbclass, 1, self.dock.dockbar_append)
         self.utils.CreateGesture(self.tbclass, 3, self.dock.join_windows)
@@ -255,6 +292,11 @@ class Panel(Adw.Application):
         self.utils.CreateGesture(self.top_panel_box_right, 1, self.right_gesture_left_click)
         self.utils.CreateGesture(self.top_panel_box_right, 2, self.left_gesture_middle_click)
         self.utils.CreateGesture(self.top_panel_box_right, 3, self.left_gesture_right_click)
+        
+        #click will copy pid to clipboard
+        self.tbpid_gesture = self.utils.CreateGesture(
+            self.tbpid, 1, self.copy_to_clipboard
+        )
     
         # Adding scroll event to the full panel
         EventScroll = Gtk.EventControllerScroll.new(Gtk.EventControllerScrollFlags.BOTH_AXES)
@@ -264,12 +306,19 @@ class Panel(Adw.Application):
     def close_fullscreen_buttons(self):
         # Creating close and full screen buttons for the top bar
         self.cf_box = Gtk.Box()
-        self.close_button = self.utils.CreateButton("close-symbolic", "hyprctl dispatch killactive", "cf_button")
-        self.fullscreen_button = self.utils.CreateButton("gtk-fullscreen", "hyprctl dispatch fullscreen", "cf_button")
-        self.cf_box.append(self.close_button)
+        self.fullscreen_button = self.utils.CreateButton("gtk-fullscreen", "hyprctl dispatch fullscreen", "cf_button", None)
+        self.close_button = self.utils.CreateButton("close-symbolic", "hyprctl dispatch killactive", "cf_button", None)
         self.cf_box.append(self.fullscreen_button)
+        self.cf_box.append(self.close_button)
         self.cf_box.add_css_class("cf_box")
-        self.top_panel_box_left.append(self.cf_box)
+        self.top_panel_box_for_buttons.append(self.cf_box)
+        
+    def right_position_launcher_topbar(self):
+        # Creating close and full screen buttons for the top bar
+        box = self.utils.CreateFromAppList(self.topbar_launcher_config,
+                        "h", "TopBar"
+        )
+        self.top_panel_box_systray.append(box)
     
     def setup_clock_widget(self):
         # Configuring the clock widget for display
@@ -279,11 +328,14 @@ class Panel(Adw.Application):
         self.clock_box.add_css_class("Clock")
     
         # Creating clock button with current date and time
-        self.clock_button = self.utils.CreateButton("gnome-panel-clock-symbolic", "cal", "ClockButton")
-        self.clock_button.set_label(datetime.now().strftime("%d %A %H:%M"))
-        self.clock_button.set_halign(Gtk.Align.CENTER)
-        self.clock_button.set_hexpand(True)
-        self.clock_box.append(self.clock_button)
+        
+        #self.clock_widget = self.utils.CreateButton("gnome-panel-clock-symbolic", "python {0}/calendar.py".format(self.scripts) , "ClockButton")
+        self.clock_widget = Gtk.Label()
+        #self.clock_widget = self.utils.CreateButton("gnome-panel-clock-symbolic", lambda: clock_dashboard() , "ClockButton")
+        self.clock_widget.set_label(datetime.now().strftime("%d %A %H:%M"))
+        self.clock_widget.set_halign(Gtk.Align.CENTER)
+        self.clock_widget.set_hexpand(True)
+        self.clock_box.append(self.clock_widget)
     
         # Adding the clock widget to the center panel
         self.clock_box1 = Gtk.Box()
@@ -300,20 +352,24 @@ class Panel(Adw.Application):
         """
     
         # Configuring the top panel based on command-line arguments
+        if any("topbar" in i for i in self.args):
+            self.dockbar, self.workspace_buttons = self.create_widgets("h", "TopBar")
+            self.all_panels_enabled = False
+            self.top_panel.present()
         if "--topbar-apps" in self.args:
-            self.top_panel.set_content(self.dockbar_config)
+            self.top_panel.set_content(self.dockbar)
         elif "--topbar-workspaces" in self.args:
-            self.top_panel.set_content(workspace_buttons)
+            self.top_panel.set_content(self.workspace_buttons)
         elif "--topbar-todo" in self.args:
             self.top_panel.set_content(self.todo_label_box)
     
         # Configuring the right panel based on command-line arguments
         if any("rightbar" in i for i in self.args):
-            self.dockbar_config, workspace_buttons = self.create_widgets("vertical", "RightBar")
+            self.dockbar, workspace_buttons = self.create_widgets("h", "RightBar")
             self.all_panels_enabled = False
             self.right_panel.present()
         elif "--rightbar-apps" in self.args:
-            self.right_panel.set_content(self.dockbar_config)
+            self.right_panel.set_content(self.dockbar)
         elif "--rightbar-workspaces" in self.args:
             self.right_panel.set_content(workspace_buttons)
         elif "--rightbar-todo" in self.args:
@@ -321,11 +377,12 @@ class Panel(Adw.Application):
     
         # Configuring the left panel based on command-line arguments
         if any("leftbar" in i for i in self.args):
-            self.dockbar_config, workspace_buttons = self.create_widgets("vertical", "LeftBar")
+            CreatePanel(app, "LEFT", "BOTTOM", self.exclusive, 0, 32, "LeftBar")
+            self.dockbar, workspace_buttons = self.create_widgets("v", "LeftBar")
             self.all_panels_enabled = False
             self.left_panel.present()
         elif "--leftbar-apps" in self.args:
-            self.left_panel.set_content(self.dockbar_config)
+            self.left_panel.set_content(self.dockbar)
         elif "--leftbar-workspaces" in self.args:
             self.left_panel.set_content(workspace_buttons)
         elif "--leftbar-todo" in self.args:
@@ -333,13 +390,13 @@ class Panel(Adw.Application):
     
         # Configuring the bottom panel based on command-line arguments
         if any("bottombar" in i for i in self.args):
-            self.dockbar_config, workspace_buttons = self.create_widgets("horizontal", "BottomBar")
+            self.dockbar, self.workspace_buttons = self.create_widgets("h", "BottomBar")
             self.all_panels_enabled = False
             self.bottom_panel.present()
         elif "--bottombar-apps" in self.args:
-            self.bottom_panel.set_content(self.dockbar_config)
+            self.bottom_panel.set_content(self.dockbar)
         elif "--bottombar-workspaces" in self.args:
-            self.bottom_panel.set_content(workspace_buttons)
+            self.bottom_panel.set_content(self.workspace_buttons)
         elif "--bottombar-todo" in self.args:
             self.bottom_panel.set_content(self.todo_label_box)
 
@@ -546,11 +603,11 @@ class Panel(Adw.Application):
         Returns:
             tuple: A tuple containing the created dockbar and workspace buttons.
         """
-        dockbar = self.utils.CreateFromAppList(
-            orientation, self.dockbar_config, class_style
+        dockbar = self.utils.CreateFromAppList(self.dockbar_config,
+            orientation,  class_style
         )
-        workspace_buttons = self.utils.CreateFromAppList(
-            orientation, self.workspace_list_config, class_style
+        workspace_buttons = self.utils.CreateFromAppList(self.workspace_list_config,
+            orientation,  class_style
         )
         return dockbar, workspace_buttons
     
@@ -575,6 +632,8 @@ class Panel(Adw.Application):
         
         return True
     
+
+            
     def on_button_press_event(self, widget, event):
         """
         Handle the button press event.
@@ -710,6 +769,7 @@ class Panel(Adw.Application):
         
         # Set the action of the menu item to "app.run-command" with the command as the target value
         menuitem.set_action_and_target_value("app.run-command", GLib.Variant("s", cmd))
+        #menuitem.set_icon("audio-card-symbolic")
         
         # Append the menu item to the specified menu
         menu.append_item(menuitem)
@@ -742,7 +802,12 @@ class Panel(Adw.Application):
             menu = Gio.Menu()
             btn = Gtk.MenuButton(label=m)
             btn.add_css_class("NewMenu")
-            btn.set_icon_name(menu_toml["icons"][m])
+            #if no icon is specified in [icons] from menu.toml then use Label instead
+            try:
+                btn.set_icon_name(menu_toml["icons"][m])
+            except:
+                btn.set_label(label=m)
+                
             btn.set_menu_model(menu)
             submenu = None
             dsubmenu = {}
@@ -775,7 +840,7 @@ class Panel(Adw.Application):
         self.utils.run_app(param.get_string())
 
     def update_clock(self):
-        self.clock_button.set_label(datetime.now().strftime("%d %A %H:%M"))
+        self.clock_widget.set_label(datetime.now().strftime("%d %A %H:%M"))
         return True
 
     def load_topbar_config(self):
@@ -884,12 +949,13 @@ class Panel(Adw.Application):
     
         Returns:
             bool: True if the label content is successfully updated, False otherwise.
-        """
+        """\
         # Execute the specified command and capture its output
-        command_output = check_output(output.split()).decode().strip()
+        command_output = check_output(output.split()).decode().replace("\n", "")
         
         # Set the label content with the captured output using markup
-        label.set_markup(command_output)
+        separator = " "
+        label.set_markup(command_output + separator)
         
         # Remove the previously scheduled source for single execution
         GLib.Source.remove(self.exec_once)
@@ -1008,7 +1074,12 @@ class Panel(Adw.Application):
         """
         try:
             active_window = self.instance.get_active_window()
-            
+            # Extract window information
+            title, wclass, initial_title = self.extract_window_info(active_window)
+            if "firefox" in wclass:
+                title = self.modify_title(title)
+                self.window_title.set_label(title)
+                
             # Skip update if the active window hasn't changed or if in the "OVERVIEW" workspace
             if self.active_window_changed != active_window.address:
                 self.active_window_changed = active_window.address
@@ -1016,10 +1087,6 @@ class Panel(Adw.Application):
                 return True
             if self.instance.get_workspace_by_name("OVERVIEW"):
                 return True
-            
-            
-            # Extract window information
-            title, wclass, initial_title = self.extract_window_info(active_window)
             
             # Apply custom icon if available
             wclass = self.apply_custom_icon(wclass)
@@ -1112,7 +1179,7 @@ class Panel(Adw.Application):
     def modify_title(self, title):
         """Modify title based on certain patterns."""
         if "www." in title:
-            title = title.split("www.")[1]
+            title = title.split("www.")[1]           
         if " — " in title:
             title = title.split(" — ")[0]
         return title
@@ -1133,6 +1200,7 @@ class Panel(Adw.Application):
             icon = icon_exist[-1]
             self.window_title.set_icon_name(icon)
             self.tbclass.set_icon_name(icon)
+            
     
     def update_widget_labels(self, workspace_id, pid, wclass, cpu_usage, mem_usage, exe):
         """Update widget labels."""

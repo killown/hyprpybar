@@ -1,60 +1,75 @@
-[separator]
-cmd = "NULL"
-icon = "nemo-vertical-layout-wide-symbolic"
-
+[wofi-menu]
+cmd = "hyprctl dispatch hyprshell:leaveoverview; wofi --location 6 --yoffset -80px"
+icon = "hyprland"
+wclass = "wofi"
 
 [firefox-developer-edition]
 cmd = "/usr/lib/firefox-developer-edition/firefox"
 icon = "firefox-developer-edition"
+wclass = "firefoxdeveloperedition"
 
 [hbomax]
 cmd = "mullvad-exclude gtk-launch msedge-dinihlfpipipfkcmaaepepiogdhoflhb-Default"
 icon = "msedge-dinihlfpipipfkcmaaepepiogdhoflhb-Default"
+wclass = "msedge"
 
 [prime]
 cmd = "mullvad-exclude gtk-launch msedge-kmifndnklcjngpikicihnhfmmfhpkcii-Default.desktop"
 icon = "chrome-nbkkgiflglejhikcliinbkikeklbpppp-Default"
+wclass = "msedge"
 
 [disney]
 cmd = "mullvad-exclude gtk-launch msedge-clbjnikbacibakcglofhpmppkpcmkacd-Default"
 icon = "msedge-clbjnikbacibakcglofhpmppkpcmkacd-Default"
+wclass = "msedge"
 
 [starplus]
 cmd = "mullvad-exclude gtk-launch msedge-bpjcodegpiniicldnepnkignejinkjpk-Default"
 icon = "msedge-bpjcodegpiniicldnepnkignejinkjpk-Default"
+wclass = "msedge"
 
 [steam]
 cmd = "mullvad-exclude steam"
 icon = "steam"
+wclass = "steam"
 
 [code]
 cmd = "code"
 icon = "code"
+wclass = "code"
 
-[thunderbird]
-cmd = "thunderbird"
-icon = "thunderbird"
 
 [telegram]
 cmd = "telegram-desktop"
 icon = "telegram-desktop"
+wclass = "org.telegram.desktop"
 
 [hexchat]
 cmd = "hexchat"
 icon = "hexchat"
-
-[thunar]
-cmd = "thunar"
-icon = "thunar"
+wclass = "hexchat"
 
 [gnome-terminal]
 cmd = "gnome-terminal"
 icon = "gnome-terminal"
+wclass = "gnome-terminal-server"
 
 [chromium]
 cmd = "/usr/lib/chromium/chromium"
 icon = "chromium"
+wclass = "chromium"
 
-[kitty]
-cmd = "/usr/bin/kitty"
-icon = "kitty"
+[webcord]
+cmd = "webcord"
+icon = "webcord"
+wclass = "webcord"
+
+[nautilus]
+cmd = "nautilus --new-window"
+icon = "nautilus"
+wclass = "org.gnome.nautilus"
+
+[thunderbird]
+cmd = "thunderbird"
+icon = "thunderbird"
+wclass = "thunderbird"
