@@ -13,6 +13,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
+
 from src.core.create_panel import *
 import asyncio
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk
@@ -23,6 +24,7 @@ import json
 import sys
 import importlib
 import requests
+import pyperclip as pc
 
 spam_loader = importlib.util.find_spec("hyprpy")
 found = spam_loader is not None
@@ -73,6 +75,9 @@ class Panel(Adw.Application):
         self.icon_theme_list = Gtk.IconTheme().get_icon_names()
         self.active_window_changed = None
         self.notifications = []
+        self.popover = None
+        self.clipboard_text_copy = None
+
 
     def _initialize_utilities(self):
         """Initialize utility functions and properties."""
@@ -136,6 +141,7 @@ class Panel(Adw.Application):
         self.setup_gestures()
         self.freedesktop_notifications()
         self.show_panels()
+        self.CreateMenuPopover(app)
 
 
 
@@ -154,7 +160,7 @@ class Panel(Adw.Application):
         for monitor_name in monitor_info:
             if self.instance.get_monitor_by_name(name=monitor_name).is_focused:
                 self.monitor_width, self.monitor_height = monitor_info[monitor_name]
-                
+
     def notification_msg(self, bus, msg):
         m = [str(m) for m in msg.get_args_list() if type(m) == dbus.String]
         notification = " ".join(m)
@@ -338,9 +344,6 @@ class Panel(Adw.Application):
         self.clock_box.append(self.clock_widget)
     
         # Adding the clock widget to the center panel
-        self.clock_box1 = Gtk.Box()
-        self.clock_box1.set_halign(Gtk.Align.CENTER)
-        self.clock_box1.set_hexpand(True)
         self.top_panel_box_center.append(self.clock_box)
        
     def setup_panel_position(self):
@@ -499,6 +502,106 @@ class Panel(Adw.Application):
                         "TopBarBackground",
                     )
         
+
+    def CreateMenuPopover(self, app):
+        LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
+        self.menubutton = Gtk.Button()
+        self.menubutton.connect("clicked", self.open_popover)
+        self.menubutton.set_icon_name("edit-paste-symbolic")
+        self.top_panel_box_systray.append(self.menubutton)
+        
+    def create_popover(self, *_):
+        # Create a popover
+        self.popover = Gtk.Popover.new()  # Create a new popover menu
+        show_searchbar_action =  Gio.SimpleAction.new("show_searchbar")
+        show_searchbar_action.connect("activate",self.on_show_searchbar_action_actived)
+        app.add_action(show_searchbar_action)
+        self.scrolled_window = Gtk.ScrolledWindow()
+        self.scrolled_window .set_min_content_width(600)
+        self.scrolled_window .set_min_content_height(600)
+        self.main_box = Gtk.Box.new( Gtk.Orientation.VERTICAL,0)
+        self.searchbar = Gtk.SearchEntry.new()
+        self.searchbar.grab_focus()
+        self.searchbar.connect("search_changed",self.on_search_entry_changed)
+        self.searchbar.set_focus_on_click(True)
+        self.searchbar.props.hexpand = True
+        self.searchbar.props.vexpand = True
+ 
+        self.main_box.append(self.searchbar)
+        self.listbox = Gtk.ListBox.new()
+        self.listbox.connect('row-selected', lambda widget, row: self.wl_copy_clipboard(row))
+        self.searchbar.set_key_capture_widget(self.top_panel)
+        self.listbox.props.hexpand = True
+        self.listbox.props.vexpand = True
+        self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.listbox.set_show_separators(True)
+        self.main_box.append(self.scrolled_window)
+        self.scrolled_window.set_child(self.listbox)
+        self.popover.set_child(self.main_box)
+        #self.popover.connect("closed", self.popover_is_closed)
+        clipboard_history = check_output("cliphist list".split()).decode().strip()
+        clipboard_history = clipboard_history.split("\n")
+        for i in clipboard_history:
+            row_hbox  = Gtk.Box.new( Gtk.Orientation.HORIZONTAL,0)
+            row_hbox.MYTEXT = i # to filter later
+            self.listbox.append(row_hbox)
+            line = Gtk.Label.new()
+            line.set_label(i)
+
+            #line.connect("clicked", lambda: self.printok(i))
+            line.props.margin_start = 5
+            line.props.hexpand = True
+            line.set_halign(Gtk.Align.START)
+            row_hbox.append(line)
+            image = Gtk.Image.new_from_icon_name("gtk-copy")
+            image.props.margin_end = 5
+            image.set_halign(Gtk.Align.END)
+            row_hbox.append(image)
+        self.listbox.set_filter_func(self.on_filter_invalidate)
+        # Create a menu button
+        self.popover.set_parent(self.menubutton)
+        self.popover.popup()
+        
+        return self.popover
+        
+    def wl_copy_clipboard(self, x):
+        selected_text = x.get_child().MYTEXT
+        selected_text = " ".join(selected_text.split()[1:])
+        #not gonna use buggy pyperclip
+        Popen("wl-copy {}".format(selected_text).split())
+        self.popover.popdown()
+        
+
+    def open_popover(self, *_):
+        LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
+        if self.popover:
+            if self.popover.is_visible():
+                self.popover.popdown()
+        self.create_popover()
+        
+    def popover_is_closed(self, *_):
+        LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.NONE)
+        
+    def on_show_searchbar_action_actived(self,action,parameter):
+        self.searchbar.set_search_mode(True) # Ctrl+F To Active show_searchbar and show searchbar
+    
+    def search_entry_grab_focus(self):
+        self.searchentry.grab_focus()
+        print("search entry is focused: {}".format(self.searchentry.is_focus()))
+        
+        
+    def on_search_entry_changed(self,searchentry):
+        """The filter_func will be called for each row after the call, 
+        and it will continue to be called each time a row changes (via [method`Gtk`.ListBoxRow.changed]) 
+        or when [method`Gtk`.ListBox.invalidate_filter] is called. """
+        searchentry.grab_focus()
+        self.listbox.invalidate_filter() # run filter (run self.on_filter_invalidate look at self.listbox.set_filter_func(self.on_filter_invalidate) )
+        
+    def on_filter_invalidate(self,row):
+        text_to_search = self.searchbar.get_text().strip() # get text from searchentry and remove space from start and end
+        if text_to_search.lower() in row.get_child().MYTEXT.lower(): # == row_hbox.MYTEXT (Gtk.ListBoxRow===>get_child()===>row_hbox.MYTEXT)
+            return True # if True Show row
+        return False 
 
     def mullvad_status(self):
         """
