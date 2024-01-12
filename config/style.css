@@ -5,7 +5,7 @@
 }
 
 .RightBar {
-  -gtk-icon-size: 26px;
+  -gtk-icon-size: 28px;
   background: #00000096;
   background-color: #00000065;
 }
@@ -60,6 +60,7 @@
 
 .Clock {
   font-size: 18px;
+  font-weight: bold;
   background: #00000096;
   background-color: #00000065;
   border-style: solid;
@@ -103,7 +104,6 @@
 
 .top_panel_box_right {
   -gtk-icon-size: 24px;
-  min-width: 28em;
 }
 
 .top_panel_box_systray {
