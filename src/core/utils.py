@@ -15,6 +15,7 @@ class Utils(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.home = os.path.expanduser("~")
+        self.webapps_applications = os.path.join(self.home, ".local/share/applications")
         self.config_path = os.path.join(self.home, ".config/hyprpanel")
         self.dockbar_config = os.path.join(self.config_path, "dockbar.toml")
         self.style_css_config = os.path.join(self.config_path, "style.css")
@@ -26,12 +27,14 @@ class Utils(Adw.Application):
         self.psutil_store = {}
         self.panel_cfg = self.load_topbar_config()
         
-    def run_app(self, cmd, wclass, cmd_mode=True):
-        
+    def run_app(self, cmd, wclass=None, initial_title=None, cmd_mode=True):
         if wclass:
             instance = Hyprland()
-            address_list = [i.address for i in instance.get_windows() if i.wm_class.lower() == wclass]
-            print(address_list, wclass)
+            address_list = []
+            if not initial_title:
+                address_list = [i.address for i in instance.get_windows() if i.wm_class.lower() == wclass]
+            if initial_title:
+                address_list = [i.address for i in instance.get_windows() if i.wm_class.lower() == wclass and i.initial_title.lower() == initial_title]
             if address_list:
                 address = address_list[0]
                 cmd = "hyprctl dispatch hyprshell:toggleoverview; hyprctl dispatch focuswindow address:{0};hyprctl dispatch fullscreen 1".format(address)
@@ -45,7 +48,6 @@ class Utils(Adw.Application):
             try:
                 Popen(cmd.split(), start_new_session=True)
             except Exception as e:
-                print(e)
                 print(e)
             return
         if ";" in cmd:
@@ -67,37 +69,129 @@ class Utils(Adw.Application):
             orientation = Gtk.Orientation.VERTICAL
 
         box = Gtk.Box(spacing=10, orientation=orientation)
-        print(config)
         with open(config, "r") as f:
             config = toml.load(f)
 
             for app in config:
                 wclass = None
+                initial_title = None
                 try:
                     wclass = config[app]["wclass"]
                 except:
                     pass
                 button = self.CreateButton(
-                    config[app]["icon"], config[app]["cmd"], class_style, wclass
+                    config[app]["icon"], config[app]["cmd"], class_style, wclass, initial_title
                 )
                 if callback is not None:
                     self.CreateGesture(button, 3, callback)
                 box.append(button)
         return box
+
+
+    def search_local_desktop(self, initial_title):
+        for deskfile in  os.listdir(self.webapps_applications):
+            if deskfile.startswith("chrome") or deskfile.startswith("msedge"):
+                pass
+            else:
+                continue
+            webapp_path = os.path.join(self.webapps_applications, deskfile)
+            #necessary initial title without lower()
+            desktop_file_found = self.search_str_inside_file(webapp_path, initial_title)
+            if desktop_file_found:
+                cmd = "gtk-launch {0}".format(deskfile)
+                icon = deskfile.split(".desktop")[0]
+                break
+        if deskfile:
+            return deskfile
+        else:
+            return None
+    
+    
+    def search_desktop(self, wm_class):
+        all_apps = Gio.AppInfo.get_all()
+        desktop_files = [i.get_id().lower() for i in all_apps if wm_class in i.get_display_name().lower()]
+        if desktop_files:
+            return desktop_files[0]
+        else:
+            return None
+    
+    def CreateTaskbarLauncher(self, wmclass, address, title, initial_title, orientation, class_style, callback=None):
+        if orientation == "h":
+            orientation = Gtk.Orientation.HORIZONTAL
+        if orientation == "v":
+            orientation = Gtk.Orientation.VERTICAL
+        cmd = "hyprctl dispatch hyprshell:toggleoverview; hyprctl dispatch focuswindow address:{0};hyprctl dispatch fullscreen 1".format(address)
+        icon = wmclass
+        all_apps = Gio.AppInfo.get_all()
+        
+        desk_local = self.search_local_desktop(initial_title)
+        desk = self.search_desktop(initial_title)
+        if desk_local:
+            desk_local = desk_local.split(".desktop")[0]
+        if desk_local is None:       
+            if desk:
+                desk = desk.split(".desktop")[0]
+        for i in all_apps:
+            if desk_local is not None and "-Default" in desk_local:
+                icon = desk_local
+                break
+            id =  i.get_id().lower()
+            name = i.get_name().lower()
+            if desk:
+                if initial_title in name:
+                   icon = i.get_icon()
+                   break
+            else:
+                if wmclass in id:
+                    icon = i.get_icon()
+        print(icon, "dodsosoodos90f0asd9f0asd9f0asd9f0a0sdfasdfsdf")
+        initial_title = " ".join(i.capitalize() for i in initial_title.split())
+        button = self.create_clicable_image(icon, cmd, class_style, wmclass, title, initial_title)
+        if callback is not None:
+            self.CreateGesture(button, 3, callback)
+        return button
         
         
-    def CreateButton(self, icon_name, cmd, Class_Style, wclass):
+    def search_str_inside_file(self, file_path, word):
+        with open(file_path, 'r') as file:
+            content = file.read()
+            if word in content:
+                return True
+            else:
+                return False
+            
+    def create_clicable_image(self, icon, cmd, Class_Style, wclass, title, initial_title):
+        box  = Gtk.Box.new( Gtk.Orientation.HORIZONTAL,0)
+        box.add_css_class(Class_Style)
+        image = None
+        if type(icon) is str:
+            image = Gtk.Image.new_from_icon_name(icon)
+        else:
+            image = Gtk.Image.new_from_gicon(icon)
+        image.add_css_class("icon_from_popover_launcher")
+        image.set_icon_size(Gtk.IconSize.LARGE)
+        image.props.margin_end = 5
+        image.set_halign(Gtk.Align.END)
+        label = Gtk.Label.new()
+        label.set_label(initial_title)
+        label.add_css_class("clicable_image_label")
+        box.append(image)
+        box.append(label)
+        separator = Gtk.Label(label=" " * 4)
+        box.append(separator)
+        self.CreateGesture(box, 1, lambda *_: self.run_app(cmd, wclass, initial_title))
+        return box
+        
+                    
+    def CreateButton(self, icon_name, cmd, Class_Style, wclass, initial_title=None):
         box = Gtk.Box(spacing=0)
-        icon = Gtk.Image(icon_name=icon_name)
-        box.append(icon)
         box.add_css_class(Class_Style)
         button = Adw.ButtonContent()
         button.set_icon_name(icon_name)
-        button.add_css_class(Class_Style + "Button")
         if cmd == "NULL":
             button.set_sensitive(False)
             return button
-        self.CreateGesture(button, 1, lambda *_: self.run_app(cmd, wclass))
+        self.CreateGesture(button, 1, lambda *_: self.run_app(cmd, wclass, initial_title))
         self.CreateGesture(button, 3, lambda *_: self.dockbar_remove(icon_name))
         return button
         

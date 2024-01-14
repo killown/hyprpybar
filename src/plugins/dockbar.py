@@ -20,6 +20,7 @@ class Dockbar(Adw.Application):
         # Initialize Utils and set configuration paths
         self.utils = Utils()
         self.home = os.path.expanduser("~")
+        self.webapps_applications = os.path.join(self.home, ".local/share/applications")
         self.config_path = os.path.join(self.home, ".config/hyprpanel")
         self.dockbar_config = os.path.join(self.config_path, "dockbar.toml")
         self.style_css_config = os.path.join(self.config_path, "style.css")
@@ -31,6 +32,12 @@ class Dockbar(Adw.Application):
         self.psutil_store = {}
         self.panel_cfg = self.utils.load_topbar_config()
         self.instance = self.HyprlandInstance()
+        self.taskbar_list = [None]
+        #this instance does not update, this is just to initialize the var
+        instance = Hyprland()
+        self.all_pids = [i.pid for i in instance.get_windows() if i.wm_class]
+        self.timeout_taskbar = None
+        self.buttons_pid = {}
 
     # Start the Dockbar application
     def do_start(self):
@@ -46,37 +53,117 @@ class Dockbar(Adw.Application):
                     self.dockbar = self.utils.CreateFromAppList(self.dockbar_config,
                         "h", "BottomBar", self.join_windows
                     )
+                    self.add_launcher = Gtk.Button()
+                    self.add_launcher.set_icon_name("tab-new-symbolic")
+                    self.add_launcher.connect("clicked", self.dockbar_append)
+                    self.dockbar.append(self.add_launcher)
                     self.bottom_panel.set_content(self.dockbar)
+                    GLib.timeout_add(300, self.check_pids)
                     self.bottom_panel.present()
+                    
+    def Taskbar(self, orientation, class_style, callback=None):
+        instance = Hyprland()
+        all_windows = [i for i in instance.get_windows() if i.wm_class and not i.wm_class in self.taskbar_list]
+        if not all_windows:
+            return True
+        with open(self.dockbar_config, "r") as f:
+            config = toml.load(f)
+        launchers_desktop_file = [config[i]["desktop_file"] for i in config]
+        for i in all_windows:
+            wm_class = i.wm_class.lower()
+            address = i.address.lower()
+            initial_title = i.initial_title.lower()
+            title = i.title
+            pid = i.pid
+            if wm_class in launchers_desktop_file:
+                continue
+            if pid in self.taskbar_list:
+                continue
+            button = self.utils.CreateTaskbarLauncher(wm_class, address, title, initial_title, orientation, class_style)
+            self.dockbar.append(button)
+            self.buttons_pid[pid] = [button, initial_title]
+            self.taskbar_list.append(pid)                     
+        return True
+
+    
+    def check_pids(self):
+        instance = Hyprland()
+        all_pids = [i.pid for i in instance.get_windows() if i.wm_class]
+        if all_pids != self.all_pids:
+            pid_new = list(set(all_pids) - set(self.all_pids))
+            pid_removed = list(set(self.all_pids) - set(all_pids))
+            if pid_removed:
+                pid_removed = pid_removed[0]
+                print( self.buttons_pid)
+                try:
+                    self.taskbar_remove(self.buttons_pid[pid_removed][0], pid_removed, self.buttons_pid[pid_removed][1])
+                except KeyError:
+                    pass
+            self.all_pids = all_pids
+            self.Taskbar("h", "taskbar")       
+        return True
+        
+
+    def taskbar_remove(self, button, pid, initial_title):
+        instance = Hyprland()
+        all_pids = [i.pid for i in instance.get_windows() if i.wm_class]
+        all_initial_titles = [i.initial_title for i in instance.get_windows() if i.wm_class]
+        if pid not in all_pids:
+            if initial_title not in all_initial_titles:
+                self.dockbar.remove(button)
+                self.taskbar_list.remove(pid) 
+
 
     # Append a window to the dockbar
     def dockbar_append(self, *_):
         w = self.instance.get_active_window()
         initial_title = w.initial_title.lower()
-        icon = cmd = initial_title
+        wclass = w.wm_class.lower()
+        icon = initial_title
+        cmd = initial_title
 
         # Adjusting for special cases like zsh or bash
         if initial_title in ["zsh", "bash"]:
             title = w.title.split(" ")[0]
             cmd = f"kitty --hold {title}"
-            icon = title
+            icon = wclass
 
         # Handling icon mapping
         try:
             icon = self.panel_cfg["change_icon_title"][icon]
         except KeyError:
             print(f"Icon mapping not found for {icon}")
+            
+            
+        try:
+            for deskfile in  os.listdir(self.webapps_applications):
+                if deskfile.startswith("chrome") or deskfile.startswith("msedge"):
+                    pass
+                else:
+                    continue
+                webapp_path = os.path.join(self.webapps_applications, deskfile)
+                #necessary initial title without lower()
+                desktop_file_found = self.utils.search_str_inside_file(webapp_path, w.initial_title)
+
+                if desktop_file_found:
+                    cmd = "gtk-launch {0}".format(deskfile)
+                    icon = deskfile.split(".desktop")[0]
+                    break
+        except:
+            pass
+                
 
         # Update the dockbar configuration
         with open(self.dockbar_config, "r") as f:
             config = toml.load(f)
-        new_data = {initial_title: {"cmd": cmd, "icon": icon}}
+        new_data = {initial_title: {"cmd": cmd, "icon": icon, "wclass":wclass, "initial_title":initial_title}}
         updated_data = ChainMap(new_data, config)
         with open(self.dockbar_config, "w") as f:
             toml.dump(updated_data, f)
+            
 
         # Create and append button to the dockbar
-        button = self.utils.CreateButton(icon, cmd, initial_title)
+        button = self.utils.CreateButton(icon, cmd, initial_title, wclass, initial_title)
         self.dockbar.append(button)
 
     # Remove a command from the dockbar configuration
@@ -96,9 +183,7 @@ class Dockbar(Adw.Application):
         clients = json.loads(j)
         for client in clients:
             if wclass in client["class"]:
-                print(wclass)
                 move_clients = f"hyprctl dispatch movetoworkspace {activeworkspace},address:{client['address']}".split()
-                print(move_clients)
                 gotoworkspace = f"hyprctl dispatch workspace name:{activeworkspace}".split()
                 call(move_clients)
                 call(gotoworkspace)

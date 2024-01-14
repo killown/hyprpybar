@@ -7,6 +7,7 @@ os.environ["GI_TYPELIB_PATH"] = "/usr/include/hyprpanel/src"
 from ctypes import CDLL
 
 CDLL("libgtk4-layer-shell.so")
+import subprocess
 from subprocess import Popen
 from subprocess import check_output, call
 import gi
@@ -24,7 +25,7 @@ import json
 import sys
 import importlib
 import requests
-import pyperclip as pc
+import random
 
 spam_loader = importlib.util.find_spec("hyprpy")
 found = spam_loader is not None
@@ -509,7 +510,7 @@ class Panel(Adw.Application):
         LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
         self.menubutton = Gtk.Button()
         self.menubutton.connect("clicked", self.open_popover_launcher)
-        self.menubutton.set_icon_name("org.buddiesofbudgie.Settings-applications-symbolic")
+        self.menubutton.set_icon_name("archlinux-symbolic")
         self.top_panel_box_systray.append(self.menubutton)
         
     def create_popover_launcher(self, *_):
@@ -541,20 +542,20 @@ class Panel(Adw.Application):
         self.scrolled_window.set_child(self.listbox)
         self.popover.set_child(self.main_box)
         all_apps = Gio.AppInfo.get_all() 
+        #randomize apps displayed every .popup()
+        random.shuffle(all_apps)
         for i in all_apps:
             name = i.get_display_name()
-            filename = i.get_filename()
+            filename = i.get_id()
             icon = i.get_icon()
-            print(name)
             if icon is None:
                 continue
             row_hbox  = Gtk.Box.new( Gtk.Orientation.HORIZONTAL,0)
-            row_hbox.MYTEXT = filename # to filter later
+            row_hbox.MYTEXT = name, filename # to filter later
             self.listbox.append(row_hbox)
             line = Gtk.Label.new()
             line.add_css_class("label_from_popover_launcher")
             line.set_label(name)
-
             #line.connect("clicked", lambda: self.printok(i))
             line.props.margin_start = 5
             line.props.hexpand = True
@@ -571,12 +572,7 @@ class Panel(Adw.Application):
         # Create a menu button
         self.popover.set_parent(self.menubutton)
         self.popover.popup()
-        
         return self.popover
-                
-        
-        
-        
 
     def CreateMenuPopover(self, app):
         LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
@@ -637,20 +633,23 @@ class Panel(Adw.Application):
         self.popover.set_parent(self.menubutton)
         self.popover.popup()
         
+        
         return self.popover
         
     def wl_copy_clipboard(self, x):
         selected_text = x.get_child().MYTEXT
-        selected_text = " ".join(selected_text.split()[1:])
+        echo = subprocess.Popen(('echo', selected_text), stdout=subprocess.PIPE)
+        selected_text = subprocess.check_output(('cliphist', 'decode'), stdin=echo.stdout).decode()
+        echo.wait()
         #not gonna use buggy pyperclip
-        Popen("wl-copy {}".format(selected_text).split())
+        Popen(["wl-copy", selected_text])
         self.popover.popdown()
         
     def run_app_from_launcher(self, x):
-        selected_text = x.get_child().MYTEXT
-        selected_text = selected_text.split("/")[-1]
-        selected_text = "gtk-launch {}".format(selected_text)
-        self.utils.run_app(selected_text)
+        selected_text, filename = x.get_child().MYTEXT
+        cmd = "gtk-launch {}".format(filename)
+        print(cmd)
+        self.utils.run_app(cmd)
         self.popover.popdown()
         
 
@@ -693,7 +692,7 @@ class Panel(Adw.Application):
         
     def on_filter_invalidate(self,row):
         text_to_search = self.searchbar.get_text().strip() # get text from searchentry and remove space from start and end
-        if text_to_search.lower() in row.get_child().MYTEXT.lower(): # == row_hbox.MYTEXT (Gtk.ListBoxRow===>get_child()===>row_hbox.MYTEXT)
+        if text_to_search.lower() in row.get_child().MYTEXT[0].lower(): # == row_hbox.MYTEXT (Gtk.ListBoxRow===>get_child()===>row_hbox.MYTEXT)
             return True # if True Show row
         return False 
 
@@ -1273,9 +1272,8 @@ class Panel(Adw.Application):
             active_window = self.instance.get_active_window()
             # Extract window information
             title, wclass, initial_title = self.extract_window_info(active_window)
-            if "firefox" in wclass:
-                title = self.modify_title(title)
-                self.window_title.set_label(title)
+            title = self.modify_title(title)
+            self.window_title.set_label(title)
                 
             # Skip update if the active window hasn't changed or if in the "OVERVIEW" workspace
             if self.active_window_changed != active_window.address:
