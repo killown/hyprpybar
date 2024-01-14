@@ -31,9 +31,6 @@
   border-radius: 10px;
 }
 
-.NewMenu {
-}
-
 .weather {
   font-size: 18px;
   font-weight: bold;
@@ -56,6 +53,14 @@
   border-width: 0.1px;
   padding: 4px 4px 4px 4px;
   border-color: #b5b3b0;
+}
+
+.icon_from_popover_launcher {
+  -gtk-icon-size: 42px;
+}
+
+.label_from_popover_launcher {
+  font-size: 16px;
 }
 
 .Clock {
@@ -126,6 +131,10 @@
   font-size: 13px;
 }
 
+.clicable_image_label {
+  color: #ffffff;
+}
+
 .TopBarBackground {
   -gtk-icon-size: 24px;
   font-size: 13px;
@@ -134,9 +143,10 @@
 }
 
 .BottomBar {
-  -gtk-icon-size: 48px;
+  -gtk-icon-size: 42px;
+  color: #ffffff;
   background-color: #4545453a;
-  background: #2727275e;
+  background: #272727d2;
   border-radius: 10px;
 }
 
