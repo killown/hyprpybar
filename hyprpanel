@@ -199,7 +199,7 @@ class Panel(Adw.Application):
         self.tbbox = Gtk.Box(spacing=20)
         self.tblabelspace = Gtk.Label(label="    ")
         self.tbworkspace = self.utils.btn_background(
-            "tbworkspace", "workspace-overview"
+            "tbworkspace", "gnome-panel-workspace-switcher"
         )
         self.tbpid = self.utils.btn_background("tbpid", "view-process-system")
         self.tbclass = self.utils.btn_background("tbclass", "cs-windows-symbolic")
