@@ -38,30 +38,49 @@ class Dockbar(Adw.Application):
         self.all_pids = [i.pid for i in instance.get_windows() if i.wm_class]
         self.timeout_taskbar = None
         self.buttons_pid = {}
+        self.buttons_address = {}
+        self.has_taskbar_started = False
 
     # Start the Dockbar application
     def do_start(self):
         with open(self.topbar_config, "r") as f:
             panel_toml = toml.load(f)
             for p in panel_toml:
+                if "left" == p:
+                    exclusive = panel_toml[p]["Exclusive"] == "True"
+                    position = panel_toml[p]["position"]
+                    self.left_panel = CreatePanel(
+                        self, "LEFT", position, exclusive, 32, 0, "LeftBar"
+                    )
+                    self.dockbar = self.utils.CreateFromAppList(self.dockbar_config,
+                        "v", "LeftBar", self.join_windows
+                    )
+                    self.add_launcher = Gtk.Button()
+                    self.add_launcher.set_icon_name("tab-new-symbolic")
+                    self.add_launcher.connect("clicked", self.dockbar_append)
+                    self.dockbar.append(self.add_launcher)
+                    self.left_panel.set_content(self.dockbar)
+                    GLib.timeout_add(300, self.check_pids)
+                    self.left_panel.present()
                 if "bottom" == p:
                     exclusive = panel_toml[p]["Exclusive"] == "True"
                     position = panel_toml[p]["position"]
                     self.bottom_panel = CreatePanel(
                         self, "BOTTOM", position, exclusive, 32, 0, "BottomBar"
                     )
-                    self.dockbar = self.utils.CreateFromAppList(self.dockbar_config,
-                        "h", "BottomBar", self.join_windows
-                    )
                     self.add_launcher = Gtk.Button()
                     self.add_launcher.set_icon_name("tab-new-symbolic")
                     self.add_launcher.connect("clicked", self.dockbar_append)
-                    self.dockbar.append(self.add_launcher)
-                    self.bottom_panel.set_content(self.dockbar)
+                    self.taskbar = Gtk.Box()
+                    self.taskbar.append(self.add_launcher)
+                    self.bottom_panel.set_content(self.taskbar)
                     GLib.timeout_add(300, self.check_pids)
                     self.bottom_panel.present()
+                    #start the taskbar list first time, remaning check pids will do
+                    self.Taskbar("h", "taskbar")           
                     
-    def Taskbar(self, orientation, class_style, callback=None):
+                    
+    def Taskbar(self, orientation, class_style, update_button=False, callback=None):
         instance = Hyprland()
         all_windows = [i for i in instance.get_windows() if i.wm_class and not i.wm_class in self.taskbar_list]
         if not all_windows:
@@ -75,45 +94,72 @@ class Dockbar(Adw.Application):
             initial_title = i.initial_title.lower()
             title = i.title
             pid = i.pid
-            if wm_class in launchers_desktop_file:
+            if wm_class in launchers_desktop_file and update_button == False:
                 continue
-            if pid in self.taskbar_list:
+            if pid in self.taskbar_list and update_button == False:
                 continue
+            #quick fix for nautilus initial class
+            if "org.gnome.nautilus" in wm_class:
+                initial_title = "nautilus"
             button = self.utils.CreateTaskbarLauncher(wm_class, address, title, initial_title, orientation, class_style)
-            self.dockbar.append(button)
-            self.buttons_pid[pid] = [button, initial_title]
+            self.taskbar.append(button)
+            self.buttons_pid[pid] = [button, initial_title, address]
+            self.buttons_address[address] = [button, title]
             self.taskbar_list.append(pid)                     
+        return True
+    
+
+    def update_taskbar(self, pid, wm_class, address, initial_title, title, orientation, class_style, callback=None):
+        button = self.utils.CreateTaskbarLauncher(wm_class, address, title, initial_title, orientation, class_style)
+        self.taskbar.append(button)
+        self.buttons_pid[pid] = [button, initial_title, address]
+        self.buttons_address[address] = [button, title]                  
         return True
 
     
-    def check_pids(self):
+    def check_pids(self):   
         instance = Hyprland()
+        if not instance.get_workspace_by_name("OVERVIEW"):
+            return True
+        active_window = instance.get_active_window()
+        initial_title = active_window.initial_title
         all_pids = [i.pid for i in instance.get_windows() if i.wm_class]
+        if initial_title == "zsh":
+            address = active_window.address
+            title = active_window.title
+            wm_class = active_window.wm_class
+            #quick fix for nautilus initial class
+            if "org.gnome.nautilus" in wm_class.lower():
+                initial_title = "nautilus"
+            pid = active_window.pid
+            if address in self.buttons_address:
+                addr = self.buttons_address[address]
+                btn = addr[0]
+                btn_title = addr[1]
+                if title != btn_title :
+                    self.taskbar.remove(btn)
+                    self.update_taskbar(pid, wm_class, address, initial_title, title, "h", "taskbar")
+                
+            
         if all_pids != self.all_pids:
-            pid_new = list(set(all_pids) - set(self.all_pids))
-            pid_removed = list(set(self.all_pids) - set(all_pids))
-            if pid_removed:
-                pid_removed = pid_removed[0]
-                print( self.buttons_pid)
-                try:
-                    self.taskbar_remove(self.buttons_pid[pid_removed][0], pid_removed, self.buttons_pid[pid_removed][1])
-                except KeyError:
-                    pass
+            self.taskbar_remove()
             self.all_pids = all_pids
             self.Taskbar("h", "taskbar")       
         return True
         
 
-    def taskbar_remove(self, button, pid, initial_title):
+    def taskbar_remove(self):
         instance = Hyprland()
         all_pids = [i.pid for i in instance.get_windows() if i.wm_class]
-        all_initial_titles = [i.initial_title for i in instance.get_windows() if i.wm_class]
-        if pid not in all_pids:
-            if initial_title not in all_initial_titles:
-                self.dockbar.remove(button)
+        all_addresses = [i.address for i in instance.get_windows() if i.wm_class]
+        for pid in self.buttons_pid.copy():
+            button = self.buttons_pid[pid][0]
+            address = self.buttons_pid[pid][2]
+            if pid not in all_pids and address not in all_addresses:
+                self.taskbar.remove(button)
                 self.taskbar_list.remove(pid) 
-
-
+                del self.buttons_pid[pid]
+                
     # Append a window to the dockbar
     def dockbar_append(self, *_):
         w = self.instance.get_active_window()

@@ -10,6 +10,7 @@ from subprocess import Popen
 import math
 import pulsectl
 from hyprpy import Hyprland
+import psutil
 
 class Utils(Adw.Application):
     def __init__(self, **kwargs):
@@ -26,6 +27,7 @@ class Utils(Adw.Application):
         self.cmd_config = os.path.join(self.config_path, "cmd.toml")
         self.psutil_store = {}
         self.panel_cfg = self.load_topbar_config()
+        self.icon_theme_list = Gtk.IconTheme().get_icon_names()
         
     def run_app(self, cmd, wclass=None, initial_title=None, cmd_mode=True):
         if wclass:
@@ -69,6 +71,7 @@ class Utils(Adw.Application):
             orientation = Gtk.Orientation.VERTICAL
 
         box = Gtk.Box(spacing=10, orientation=orientation)
+        box.add_css_class("box_from_dockbar")
         with open(config, "r") as f:
             config = toml.load(f)
 
@@ -116,16 +119,31 @@ class Utils(Adw.Application):
             return None
     
     def CreateTaskbarLauncher(self, wmclass, address, title, initial_title, orientation, class_style, callback=None):
+
         if orientation == "h":
             orientation = Gtk.Orientation.HORIZONTAL
         if orientation == "v":
             orientation = Gtk.Orientation.VERTICAL
-        cmd = "hyprctl dispatch hyprshell:toggleoverview; hyprctl dispatch focuswindow address:{0};hyprctl dispatch fullscreen 1".format(address)
+        cmd = None
+        processes = psutil.process_iter()
+        instance = Hyprland()
+        pid = [i.pid for i in instance.get_windows() if i.address == address]
+        if pid:
+            process_id = pid[0]
+            if -1 != process_id:
+                cmd = "hyprctl dispatch hyprshell:toggleoverview; hyprctl dispatch focuswindow address:{0};hyprctl dispatch fullscreen 1".format(address)
+            
         icon = wmclass
         all_apps = Gio.AppInfo.get_all()
         
         desk_local = self.search_local_desktop(initial_title)
-        desk = self.search_desktop(initial_title)
+        desk = self.search_desktop(wmclass)
+        if cmd is None:
+            print(wmclass, address, initial_title, desk_local, desk, "cmd is none caralho")
+            if not wmclass in desk_local:
+                cmd = "gtk-launch {}".format(desk)
+            else:
+                cmd = "gtk-launch {}".format(desk_local)
         if desk_local:
             desk_local = desk_local.split(".desktop")[0]
         if desk_local is None:       
@@ -144,7 +162,15 @@ class Utils(Adw.Application):
             else:
                 if wmclass in id:
                     icon = i.get_icon()
-        print(icon, "dodsosoodos90f0asd9f0asd9f0asd9f0a0sdfasdfsdf")
+                    
+        if initial_title == "zsh":
+            label = title.split(" ")[0]
+            icon_exist = [i for i in self.icon_theme_list if label in i]
+            try:
+                icon = icon_exist[-1]
+            except IndexError:
+                pass                        
+                    
         initial_title = " ".join(i.capitalize() for i in initial_title.split())
         button = self.create_clicable_image(icon, cmd, class_style, wmclass, title, initial_title)
         if callback is not None:
@@ -164,6 +190,12 @@ class Utils(Adw.Application):
         box  = Gtk.Box.new( Gtk.Orientation.HORIZONTAL,0)
         box.add_css_class(Class_Style)
         image = None
+        #panel.toml has filters for missing icons
+        try:
+            icon = self.panel_cfg["change_icon_title"][icon]
+        except:
+            print(icon, "errrrouuu")
+            pass
         if type(icon) is str:
             image = Gtk.Image.new_from_icon_name(icon)
         else:
@@ -173,12 +205,17 @@ class Utils(Adw.Application):
         image.props.margin_end = 5
         image.set_halign(Gtk.Align.END)
         label = Gtk.Label.new()
-        label.set_label(initial_title)
+        #zsh use titles instead of initial title
+        use_this_title = initial_title
+        if "zsh" == initial_title.lower():
+            use_this_title = title
+        label.set_label(use_this_title)
         label.add_css_class("clicable_image_label")
         box.append(image)
         box.append(label)
         separator = Gtk.Label(label=" " * 4)
         box.append(separator)
+        box.add_css_class("box_from_clicable_image")
         self.CreateGesture(box, 1, lambda *_: self.run_app(cmd, wclass, initial_title))
         return box
         
@@ -188,6 +225,8 @@ class Utils(Adw.Application):
         box.add_css_class(Class_Style)
         button = Adw.ButtonContent()
         button.set_icon_name(icon_name)
+        button.add_css_class("{}-buttons".format(Class_Style))
+        button.add_css_class("hvr-grow")
         if cmd == "NULL":
             button.set_sensitive(False)
             return button
