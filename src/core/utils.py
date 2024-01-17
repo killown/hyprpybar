@@ -117,8 +117,7 @@ class Utils(Adw.Application):
             return desktop_files[0]
         else:
             return None
-    
-    def CreateTaskbarLauncher(self, wmclass, address, title, initial_title, orientation, class_style, callback=None):
+    def CreateTaskbarLauncher(self, wmclass, address, title, initial_title, orientation, class_style, callback=None):      
         if orientation == "h":
             orientation = Gtk.Orientation.HORIZONTAL
         if orientation == "v":
@@ -135,10 +134,19 @@ class Utils(Adw.Application):
         icon = wmclass
         all_apps = Gio.AppInfo.get_all()
         
-        desk_local = self.search_local_desktop(initial_title)
         desk = self.search_desktop(wmclass)
+        desk_local = self.search_local_desktop(initial_title)
+        
+        with open(self.dockbar_config, "r") as f:
+            config = toml.load(f)
+        try:
+            icon = config[wmclass.lower()]["icon"]
+            desk = None
+            desk_local = None
+        except:
+            pass
+
         if cmd is None:
-            print(wmclass, address, initial_title, desk_local, desk, "cmd is none caralho")
             if not wmclass in desk_local:
                 cmd = "gtk-launch {}".format(desk)
             else:
@@ -149,11 +157,11 @@ class Utils(Adw.Application):
             if desk:
                 desk = desk.split(".desktop")[0]
         for i in all_apps:
+            id =  i.get_id().lower()
+            name = i.get_name().lower()
             if desk_local is not None and "-Default" in desk_local:
                 icon = desk_local
                 break
-            id =  i.get_id().lower()
-            name = i.get_name().lower()
             if desk:
                 if initial_title in name:
                    icon = i.get_icon()
@@ -169,6 +177,9 @@ class Utils(Adw.Application):
                 icon = icon_exist[-1]
             except IndexError:
                 pass        
+            
+        if wmclass == "gnome-terminal-server":
+            print(wmclass, icon, "gnome-terminal-server" * 200)
         
         initial_title = " ".join(i.capitalize() for i in initial_title.split())
         button = self.create_clicable_image(icon, cmd, class_style, wmclass, title, initial_title)
@@ -193,7 +204,6 @@ class Utils(Adw.Application):
         try:
             icon = self.panel_cfg["change_icon_title"][icon]
         except:
-            print(icon, "errrrouuu")
             pass
         if type(icon) is str:
             image = Gtk.Image.new_from_icon_name(icon)

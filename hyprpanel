@@ -76,7 +76,9 @@ class Panel(Adw.Application):
         self.icon_theme_list = Gtk.IconTheme().get_icon_names()
         self.active_window_changed = None
         self.notifications = []
-        self.popover = None
+        self.popover_bookmarks = None
+        self.popover_launcher = None 
+        self.popover_clipboard = None
         self.clipboard_text_copy = None
 
 
@@ -142,7 +144,7 @@ class Panel(Adw.Application):
         self.setup_gestures()
         self.freedesktop_notifications()
         self.show_panels()
-        self.CreateMenuPopover(app)
+        self.create_popover_menu_clipboard(app)
         self.create_menu_popover_launcher(app)
         self.create_menu_popover_bookmarks(app)
 
@@ -507,14 +509,14 @@ class Panel(Adw.Application):
         
     def create_menu_popover_bookmarks(self, app):
         LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
-        self.menubutton = Gtk.Button()
-        self.menubutton.connect("clicked", self.open_popover_bookmarks)
-        self.menubutton.set_icon_name("bookmarks-organize-symbolic")
-        self.top_panel_box_left.append(self.menubutton)
+        self.menubutton_bookmarks = Gtk.Button()
+        self.menubutton_bookmarks.connect("clicked", self.open_popover_bookmarks)
+        self.menubutton_bookmarks.set_icon_name("bookmarks-organize-symbolic")
+        self.top_panel_box_left.append(self.menubutton_bookmarks)
         
     def create_popover_bookmarks(self, *_):
         # Create a popover
-        self.popover = Gtk.Popover.new()  # Create a new popover menu
+        self.popover_bookmarks = Gtk.Popover.new()  # Create a new popover menu
         show_searchbar_action =  Gio.SimpleAction.new("show_searchbar")
         show_searchbar_action.connect("activate",self.on_show_searchbar_action_actived)
         app.add_action(show_searchbar_action)
@@ -539,19 +541,23 @@ class Panel(Adw.Application):
         self.listbox.set_show_separators(True)
         self.main_box.append(self.scrolled_window)
         self.scrolled_window.set_child(self.listbox)
-        self.popover.set_child(self.main_box)
-        all_bookmarks = ["youtube.com", "reddit.com", "discord.com", "github.com"]
-        for url in all_bookmarks:
+        self.popover_bookmarks.set_child(self.main_box)
+        bookmarks_path = os.path.join(self.home, ".bookmarks")
+        with open(bookmarks_path, "r") as f:
+            all_bookmarks = toml.load(f)
+        for name in all_bookmarks:
+            url = all_bookmarks[name]["url"]
+            row_hbox  = Gtk.Box.new( Gtk.Orientation.HORIZONTAL,0)
+            row_hbox.MYTEXT = url, all_bookmarks[name]["container"]
             icon = url + ".png"
+            #just user -- instead of / so no conflicts with
+            icon = icon.replace("/", "--")
             bookmark_image = os.path.join(self.config_path, "bookmarks/images/", icon)
             icon = bookmark_image
-            row_hbox  = Gtk.Box.new( Gtk.Orientation.HORIZONTAL,0)
-            container = url
-            row_hbox.MYTEXT = url, container
             self.listbox.append(row_hbox)
             line = Gtk.Label.new()
             line.add_css_class("label_from_bookmarks")
-            line.set_label(url.upper())
+            line.set_label(name)
             line.props.margin_start = 5
             line.props.hexpand = True
             line.set_halign(Gtk.Align.START)
@@ -564,20 +570,20 @@ class Panel(Adw.Application):
             row_hbox.append(line)
         self.listbox.set_filter_func(self.on_filter_invalidate)
         # Create a menu button
-        self.popover.set_parent(self.menubutton)
-        self.popover.popup()
-        return self.popover      
+        self.popover_bookmarks.set_parent(self.menubutton_bookmarks)
+        self.popover_bookmarks.popup()
+        return self.popover_bookmarks  
         
     def create_menu_popover_launcher(self, app):
         LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
-        self.menubutton = Gtk.Button()
-        self.menubutton.connect("clicked", self.open_popover_launcher)
-        self.menubutton.set_icon_name("archlinux-symbolic")
-        self.top_panel_box_systray.append(self.menubutton)
+        self.menubutton_launcher = Gtk.Button()
+        self.menubutton_launcher.connect("clicked", self.open_popover_launcher)
+        self.menubutton_launcher.set_icon_name("archlinux-symbolic")
+        self.top_panel_box_systray.append(self.menubutton_launcher)
         
     def create_popover_launcher(self, *_):
         # Create a popover
-        self.popover = Gtk.Popover.new()  # Create a new popover menu
+        self.popover_launcher = Gtk.Popover.new()  # Create a new popover menu
         show_searchbar_action =  Gio.SimpleAction.new("show_searchbar")
         show_searchbar_action.connect("activate",self.on_show_searchbar_action_actived)
         app.add_action(show_searchbar_action)
@@ -602,7 +608,7 @@ class Panel(Adw.Application):
         self.listbox.set_show_separators(True)
         self.main_box.append(self.scrolled_window)
         self.scrolled_window.set_child(self.listbox)
-        self.popover.set_child(self.main_box)
+        self.popover_launcher.set_child(self.main_box)
         all_apps = Gio.AppInfo.get_all() 
         #randomize apps displayed every .popup()
         random.shuffle(all_apps)
@@ -632,20 +638,20 @@ class Panel(Adw.Application):
             row_hbox.append(line)
         self.listbox.set_filter_func(self.on_filter_invalidate)
         # Create a menu button
-        self.popover.set_parent(self.menubutton)
-        self.popover.popup()
-        return self.popover
+        self.popover_launcher.set_parent(self.menubutton_launcher)
+        self.popover_launcher.popup()
+        return self.popover_launcher
 
-    def CreateMenuPopover(self, app):
+    def create_popover_menu_clipboard(self, app):
         LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
-        self.menubutton = Gtk.Button()
-        self.menubutton.connect("clicked", self.open_popover)
-        self.menubutton.set_icon_name("edit-paste-symbolic")
-        self.top_panel_box_systray.append(self.menubutton)
+        self.menubutton_clipboard = Gtk.Button.new()
+        self.menubutton_clipboard.connect("clicked", self.open_popover_clipboard)
+        self.menubutton_clipboard.set_icon_name("edit-paste-symbolic")
+        self.top_panel_box_systray.append(self.menubutton_clipboard)
         
-    def create_popover(self, *_):
+    def create_popover_clipboard(self, *_):
         # Create a popover
-        self.popover = Gtk.Popover.new()  # Create a new popover menu
+        self.popover_clipboard = Gtk.Popover.new()  # Create a new popover menu
         show_searchbar_action =  Gio.SimpleAction.new("show_searchbar")
         show_searchbar_action.connect("activate",self.on_show_searchbar_action_actived)
         app.add_action(show_searchbar_action)
@@ -670,7 +676,7 @@ class Panel(Adw.Application):
         self.listbox.set_show_separators(True)
         self.main_box.append(self.scrolled_window)
         self.scrolled_window.set_child(self.listbox)
-        self.popover.set_child(self.main_box)
+        self.popover_clipboard.set_child(self.main_box)
         #self.popover.connect("closed", self.popover_is_closed)
         clipboard_history = check_output("cliphist list".split()).decode().strip()
         clipboard_history = clipboard_history.split("\n")
@@ -692,11 +698,9 @@ class Panel(Adw.Application):
             row_hbox.append(image)
         self.listbox.set_filter_func(self.on_filter_invalidate)
         # Create a menu button
-        self.popover.set_parent(self.menubutton)
-        self.popover.popup()
-        
-        
-        return self.popover
+        self.popover_clipboard.set_parent(self.menubutton_clipboard)
+        self.popover_clipboard.popup()
+        return self.popover_clipboard
         
     def wl_copy_clipboard(self, x):
         selected_text = x.get_child().MYTEXT
@@ -705,7 +709,7 @@ class Panel(Adw.Application):
         echo.wait()
         #not gonna use buggy pyperclip
         Popen(["wl-copy", selected_text])
-        self.popover.popdown()
+        self.popover_clipboard.popdown()
         
     def open_url_from_bookmars(self, x):
         url, container = x.get_child().MYTEXT
@@ -717,7 +721,7 @@ class Panel(Adw.Application):
             Popen(cmd)
         cmd = ["firefox-developer-edition", "ext+container:name={0}&url={1}".format(container, url)]
         Popen(cmd)
-        self.popover.popdown()
+        self.popover_bookmarks.popdown()
         
 
     def run_app_from_launcher(self, x):
@@ -725,34 +729,34 @@ class Panel(Adw.Application):
         cmd = "gtk-launch {}".format(filename)
         print(cmd)
         self.utils.run_app(cmd)
-        self.popover.popdown()
+        self.popover_launcher.popdown()
         
-        
-    def open_popover(self, *_):
-        LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
-        if self.popover:
-            if self.popover.is_visible():
-                self.popover.popdown()
-        self.create_popover()
-        
-    def popover_is_closed(self, *_):
-        LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.NONE)
-        
-        
-
-    def open_popover_launcher(self, *_):
-        LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
-        if self.popover:
-            if self.popover.is_visible():
-                self.popover.popdown()
-        self.create_popover_launcher()
         
     def open_popover_bookmarks(self, *_):
         LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
-        if self.popover:
-            if self.popover.is_visible():
-                self.popover.popdown()
-        self.create_popover_bookmarks()
+        if self.popover_bookmarks:
+            if self.popover_bookmarks.is_visible():
+                self.popover_bookmarks.popdown()
+        self.create_popover_bookmarks(app)
+        
+    def open_popover_launcher(self, *_):
+        LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
+        if self.popover_launcher:
+            if self.popover_launcher.is_visible():
+                self.popover_launcher.popdown()
+        self.create_popover_launcher(app)
+        
+    def open_popover_clipboard(self, *_):
+        LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
+        if self.popover_clipboard:
+            if self.popover_clipboard.is_visible():
+                self.popover_clipboard.popdown()
+        self.create_popover_clipboard(app)
+        
+
+        
+    def popover_is_closed(self, *_):
+        LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.NONE)
         
     def popover_launcher_is_closed(self, *_):
         LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.NONE)
