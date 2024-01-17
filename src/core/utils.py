@@ -92,7 +92,7 @@ class Utils(Adw.Application):
 
 
     def search_local_desktop(self, initial_title):
-        for deskfile in  os.listdir(self.webapps_applications):
+        for deskfile in os.listdir(self.webapps_applications):
             if deskfile.startswith("chrome") or deskfile.startswith("msedge"):
                 pass
             else:
@@ -119,7 +119,6 @@ class Utils(Adw.Application):
             return None
     
     def CreateTaskbarLauncher(self, wmclass, address, title, initial_title, orientation, class_style, callback=None):
-
         if orientation == "h":
             orientation = Gtk.Orientation.HORIZONTAL
         if orientation == "v":
@@ -169,8 +168,8 @@ class Utils(Adw.Application):
             try:
                 icon = icon_exist[-1]
             except IndexError:
-                pass                        
-                    
+                pass        
+        
         initial_title = " ".join(i.capitalize() for i in initial_title.split())
         button = self.create_clicable_image(icon, cmd, class_style, wmclass, title, initial_title)
         if callback is not None:
@@ -181,13 +180,13 @@ class Utils(Adw.Application):
     def search_str_inside_file(self, file_path, word):
         with open(file_path, 'r') as file:
             content = file.read()
-            if word in content:
+            if word in content.lower():
                 return True
             else:
                 return False
             
     def create_clicable_image(self, icon, cmd, Class_Style, wclass, title, initial_title):
-        box  = Gtk.Box.new( Gtk.Orientation.HORIZONTAL,0)
+        box  = Gtk.Box.new( Gtk.Orientation.HORIZONTAL, spacing=6)
         box.add_css_class(Class_Style)
         image = None
         #panel.toml has filters for missing icons
@@ -209,19 +208,22 @@ class Utils(Adw.Application):
         use_this_title = initial_title
         if "zsh" == initial_title.lower():
             use_this_title = title
+           
+        desktop_local_file = self.search_local_desktop(initial_title) 
+        if desktop_local_file:
+            icon = desktop_local_file.split(".desktop")[0]            
+                    
         label.set_label(use_this_title)
         label.add_css_class("clicable_image_label")
         box.append(image)
         box.append(label)
-        separator = Gtk.Label(label=" " * 4)
-        box.append(separator)
         box.add_css_class("box_from_clicable_image")
         self.CreateGesture(box, 1, lambda *_: self.run_app(cmd, wclass, initial_title))
         return box
         
                     
     def CreateButton(self, icon_name, cmd, Class_Style, wclass, initial_title=None):
-        box = Gtk.Box(spacing=0)
+        box = Gtk.Box(spacing=6)
         box.add_css_class(Class_Style)
         button = Adw.ButtonContent()
         button.set_icon_name(icon_name)

@@ -1,4 +1,5 @@
 # Hyprpanel
+
 ##### _Gtk4/Adwaita panel made for hyprland_
 
 Hyprpanel doesn't implement systray and taskbar, and there are no plans to implement them.
@@ -16,6 +17,7 @@ mkdir ~/.config/hyprpanel; cp config/* ~/.config/hyprpanel
 The info panel is intended to be used with https://github.com/killown/hyprshell plugin
 
 ### Current features
+
 - Dockbar
 - Information panel with numerous features
 - Top panel with a GNOME appearance
@@ -29,6 +31,7 @@ The info panel is intended to be used with https://github.com/killown/hyprshell 
 - Adjust sound volume using the mouse wheel in the top bar.
 
 #### Info from focused window
+
 - CPU
 - MEM
 - Disk

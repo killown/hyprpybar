@@ -73,6 +73,7 @@ class Dockbar(Adw.Application):
                     self.add_launcher.connect("clicked", self.dockbar_append)
                     self.taskbar = Gtk.Box()
                     self.taskbar.append(self.add_launcher)
+                    self.taskbar.add_css_class("taskbar")
                     self.bottom_panel.set_content(self.taskbar)
                     GLib.timeout_add(300, self.check_pids)
                     self.bottom_panel.present()
@@ -121,30 +122,36 @@ class Dockbar(Adw.Application):
         instance = Hyprland()
         if not instance.get_workspace_by_name("OVERVIEW"):
             return True
-        active_window = instance.get_active_window()
-        initial_title = active_window.initial_title
-        all_pids = [i.pid for i in instance.get_windows() if i.wm_class]
-        if initial_title == "zsh":
-            address = active_window.address
-            title = active_window.title
-            wm_class = active_window.wm_class
-            #quick fix for nautilus initial class
-            if "org.gnome.nautilus" in wm_class.lower():
-                initial_title = "nautilus"
-            pid = active_window.pid
-            if address in self.buttons_address:
-                addr = self.buttons_address[address]
-                btn = addr[0]
-                btn_title = addr[1]
-                if title != btn_title :
-                    self.taskbar.remove(btn)
-                    self.update_taskbar(pid, wm_class, address, initial_title, title, "h", "taskbar")
+        #since I am lazy to verify what could possibly go wrong
+        #then pass exception to always this function return true
+        #so the glib.timeout won't stop to check
+        try:
+            active_window = instance.get_active_window()
+            initial_title = active_window.initial_title
+            all_pids = [i.pid for i in instance.get_windows() if i.wm_class]
+            if initial_title == "zsh":
+                address = active_window.address
+                title = active_window.title
+                wm_class = active_window.wm_class
+                #quick fix for nautilus initial class
+                if "org.gnome.nautilus" in wm_class.lower():
+                    initial_title = "nautilus"
+                pid = active_window.pid
+                if address in self.buttons_address:
+                    addr = self.buttons_address[address]
+                    btn = addr[0]
+                    btn_title = addr[1]
+                    if title != btn_title :
+                        self.taskbar.remove(btn)
+                        self.update_taskbar(pid, wm_class, address, initial_title, title, "h", "taskbar")
+                    
                 
-            
-        if all_pids != self.all_pids:
-            self.taskbar_remove()
-            self.all_pids = all_pids
-            self.Taskbar("h", "taskbar")       
+            if all_pids != self.all_pids:
+                self.taskbar_remove()
+                self.all_pids = all_pids
+                self.Taskbar("h", "taskbar")
+        except:
+            pass  
         return True
         
 
@@ -156,9 +163,13 @@ class Dockbar(Adw.Application):
             button = self.buttons_pid[pid][0]
             address = self.buttons_pid[pid][2]
             if pid not in all_pids and address not in all_addresses:
-                self.taskbar.remove(button)
-                self.taskbar_list.remove(pid) 
-                del self.buttons_pid[pid]
+                try:
+                    self.taskbar.remove(button)
+                    self.taskbar_list.remove(pid)
+                except ValueError:
+                    pass  
+        return True
+
                 
     # Append a window to the dockbar
     def dockbar_append(self, *_):
