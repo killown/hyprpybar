@@ -177,9 +177,6 @@ class Utils(Adw.Application):
                 icon = icon_exist[-1]
             except IndexError:
                 pass        
-            
-        if wmclass == "gnome-terminal-server":
-            print(wmclass, icon, "gnome-terminal-server" * 200)
         
         initial_title = " ".join(i.capitalize() for i in initial_title.split())
         button = self.create_clicable_image(icon, cmd, class_style, wmclass, title, initial_title)

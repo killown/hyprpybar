@@ -128,7 +128,10 @@ class Dockbar(Adw.Application):
             active_window = instance.get_active_window()
             all_pids = [i.pid for i in instance.get_windows() if i.wm_class]
             if all_pids != self.all_pids:
-                 return True
+                self.taskbar_remove()
+                self.all_pids = all_pids
+                self.Taskbar("h", "taskbar")
+            return True
             initial_title = active_window.initial_title
             if initial_title == "zsh":
                 address = active_window.address
@@ -145,12 +148,7 @@ class Dockbar(Adw.Application):
                     if title != btn_title :
                         self.taskbar.remove(btn)
                         self.update_taskbar(pid, wm_class, address, initial_title, title, "h", "taskbar")
-                    
-                
-            if all_pids != self.all_pids:
-                self.taskbar_remove()
-                self.all_pids = all_pids
-                self.Taskbar("h", "taskbar")
+
         except:
             pass  
         return True
