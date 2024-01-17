@@ -70,9 +70,6 @@ class Panel(Adw.Application):
 
         # Load configurations
         self.panel_cfg = self.load_topbar_config()
-
-        # Dockbar and icon themes
-        self.dock = Dockbar(application_id="com.github.dockbar")
         self.icon_theme_list = Gtk.IconTheme().get_icon_names()
         self.active_window_changed = None
         self.notifications = []
@@ -111,6 +108,8 @@ class Panel(Adw.Application):
         self.top_panel_box_full.attach_next_to(
             self.top_panel_grid_right, self.top_panel_box_center, Gtk.PositionType.RIGHT, 1, 3
         )
+        # Dockbar and icon themes
+        self.dock = Dockbar(application_id="com.github.dockbar")
 
     def _setup_config_paths(self):
         """Set up configuration paths based on the user's home directory."""
@@ -143,12 +142,12 @@ class Panel(Adw.Application):
         self.setup_panel_position()
         self.setup_gestures()
         self.freedesktop_notifications()
-        self.show_panels()
         self.create_popover_menu_clipboard(app)
         self.create_menu_popover_launcher(app)
         self.create_menu_popover_bookmarks(app)
-
-
+        
+    def do_activate(self):
+        self.show_panels()
 
     def freedesktop_notifications(self):
         DBusGMainLoop(set_as_default=True)
@@ -1082,7 +1081,6 @@ class Panel(Adw.Application):
                 continue
             menu = Gio.Menu()
             btn = Gtk.MenuButton(label=m)
-            btn.add_css_class("NewMenu")
             #if no icon is specified in [icons] from menu.toml then use Label instead
             try:
                 btn.set_icon_name(menu_toml["icons"][m])

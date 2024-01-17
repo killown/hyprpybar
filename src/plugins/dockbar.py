@@ -43,6 +43,7 @@ class Dockbar(Adw.Application):
 
     # Start the Dockbar application
     def do_start(self):
+        GLib.timeout_add(300, self.check_pids)
         with open(self.topbar_config, "r") as f:
             panel_toml = toml.load(f)
             for p in panel_toml:
@@ -60,7 +61,6 @@ class Dockbar(Adw.Application):
                     self.add_launcher.connect("clicked", self.dockbar_append)
                     self.dockbar.append(self.add_launcher)
                     self.left_panel.set_content(self.dockbar)
-                    GLib.timeout_add(300, self.check_pids)
                     self.left_panel.present()
                 if "bottom" == p:
                     exclusive = panel_toml[p]["Exclusive"] == "True"
@@ -75,7 +75,6 @@ class Dockbar(Adw.Application):
                     self.taskbar.append(self.add_launcher)
                     self.taskbar.add_css_class("taskbar")
                     self.bottom_panel.set_content(self.taskbar)
-                    GLib.timeout_add(300, self.check_pids)
                     self.bottom_panel.present()
                     #start the taskbar list first time, remaning check pids will do
                     self.Taskbar("h", "taskbar")           
@@ -127,8 +126,10 @@ class Dockbar(Adw.Application):
         #so the glib.timeout won't stop to check
         try:
             active_window = instance.get_active_window()
-            initial_title = active_window.initial_title
             all_pids = [i.pid for i in instance.get_windows() if i.wm_class]
+            if all_pids != self.all_pids:
+                 return True
+            initial_title = active_window.initial_title
             if initial_title == "zsh":
                 address = active_window.address
                 title = active_window.title
