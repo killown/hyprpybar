@@ -131,7 +131,7 @@ class Dockbar(Adw.Application):
                 self.taskbar_remove()
                 self.all_pids = all_pids
                 self.Taskbar("h", "taskbar")
-            return True
+                return True
             initial_title = active_window.initial_title
             if initial_title == "zsh":
                 address = active_window.address
