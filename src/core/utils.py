@@ -101,7 +101,6 @@ class Utils(Adw.Application):
                 pass
             else:
                 continue
-            
             webapp_path = os.path.join(self.webapps_applications, deskfile)
             desktop_file_found = self.search_str_inside_file(webapp_path, initial_title.lower())
             
@@ -113,8 +112,7 @@ class Utils(Adw.Application):
             return desktop
         else:
             return None
-    
-    
+          
     def search_desktop(self, wm_class):
         all_apps = Gio.AppInfo.get_all()
         desktop_files = [i.get_id().lower() for i in all_apps if wm_class in i.get_display_name().lower()]
@@ -122,7 +120,7 @@ class Utils(Adw.Application):
             return desktop_files[0]
         else:
             return None
-    def CreateTaskbarLauncher(self, wmclass, address, title, initial_title, orientation, class_style, callback=None):      
+    def CreateTaskbarLauncher(self, wmclass, address, title, initial_title, orientation, class_style, callback=None):                
         if orientation == "h":
             orientation = Gtk.Orientation.HORIZONTAL
         if orientation == "v":

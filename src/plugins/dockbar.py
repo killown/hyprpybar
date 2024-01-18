@@ -13,6 +13,7 @@ from gi.repository import Gtk, Adw, GLib, Gio, Gdk
 from ..core.create_panel import *
 from ..core.utils import Utils
 from hyprpy import Hyprland
+import numpy as np
 
 class Dockbar(Adw.Application):
     def __init__(self, **kwargs):
@@ -41,10 +42,16 @@ class Dockbar(Adw.Application):
         self.buttons_pid = {}
         self.buttons_address = {}
         self.has_taskbar_started = False
+        self.stored_windows = []
 
     # Start the Dockbar application
     def do_start(self):
         GLib.timeout_add(300, self.check_pids)
+        
+        #populate self.stored_windows in the panel start
+        instance = Hyprland()
+        self.stored_windows = [i.address for i in instance.get_windows()]
+        
         with open(self.topbar_config, "r") as f:
             panel_toml = toml.load(f)
             for p in panel_toml:
@@ -79,7 +86,20 @@ class Dockbar(Adw.Application):
                     self.bottom_panel.present()
                     #start the taskbar list first time, remaning check pids will do
                     self.Taskbar("h", "taskbar")           
-                    
+  
+  
+    def is_any_window_created_or_closed(self):
+        instance = Hyprland()
+        updated_windows = [i.address for i in instance.get_windows()]    
+        diff_created = np.setdiff1d(self.stored_windows, updated_windows)
+        diff_updated = np.setdiff1d(updated_windows, self.stored_windows)
+        difference = [np.concatenate((diff_created, diff_updated))]
+        if difference[0]:
+            self.stored_windows = updated_windows
+            return True
+        else:
+            return False
+
                     
     def Taskbar(self, orientation, class_style, update_button=False, callback=None):
         instance = Hyprland()
@@ -127,6 +147,8 @@ class Dockbar(Adw.Application):
         #since I am lazy to verify what could possibly go wrong
         #then pass exception to always this function return true
         #so the glib.timeout won't stop to check
+        if not self.is_any_window_created_or_closed():
+            return True
         try:
             active_window = instance.get_active_window()
             all_pids = [i.pid for i in instance.get_windows() if i.wm_class]

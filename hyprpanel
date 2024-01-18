@@ -26,6 +26,7 @@ import sys
 import importlib
 import requests
 import random
+import numpy as np
 
 spam_loader = importlib.util.find_spec("hyprpy")
 found = spam_loader is not None
@@ -80,7 +81,6 @@ class Panel(Adw.Application):
         self.clipboard_text_copy = None
         self.active_window_changed = None
         self.hyprpanel_started_now = True
-
 
     def _initialize_utilities(self):
         """Initialize utility functions and properties."""
@@ -1472,6 +1472,7 @@ class Panel(Adw.Application):
             return True
         else:
             return False
+        
             
     def update_widgets(self):
         """
@@ -1510,16 +1511,7 @@ class Panel(Adw.Application):
            
         return True
     
-    # Helper methods
-    def extract_window_info(self, active_window):
-        """Extract and return window information."""
-        title = active_window.title
-        if len(title) > 100:
-            title = active_window.title[0:100]
-        wclass = active_window.initial_wm_class.lower()
-        initial_title = active_window.initial_title
-        return title, wclass, initial_title
-    
+
     def extract_widget_info(self, active_window):
         """Extract and return widget-related information."""
         title = active_window.title[0:100]
