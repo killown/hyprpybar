@@ -26,7 +26,7 @@ import sys
 import importlib
 import requests
 import random
-import numpy as np
+
 
 spam_loader = importlib.util.find_spec("hyprpy")
 found = spam_loader is not None
@@ -131,7 +131,6 @@ class Panel(Adw.Application):
         self.psutil_store = {}
 
     def on_activate(self, app):
-        self.instance = self.HyprlandInstance()
         self.monitor_width_height()
         # start cmd output session, cmd.toml
         self.cmd_output()
@@ -165,8 +164,9 @@ class Panel(Adw.Application):
     def monitor_width_height(self):
         # get monitor info and set the width, height for the panel
         monitor_info = self.get_monitor_info()
+        instance = Hyprland()
         for monitor_name in monitor_info:
-            if self.instance.get_monitor_by_name(name=monitor_name).is_focused:
+            if instance.get_monitor_by_name(name=monitor_name).is_focused:
                 self.monitor_width, self.monitor_height = monitor_info[monitor_name]
 
     def notification_msg(self, bus, msg):
@@ -253,6 +253,7 @@ class Panel(Adw.Application):
         GLib.timeout_add(1000, self.update_clock)
         GLib.timeout_add(200, self.update_widgets)
         GLib.timeout_add(200, self.update_title_topbar)
+        GLib.timeout_add_seconds(1, self.update_title_topbar) 
         GLib.timeout_add(10000, self.mullvad_status)
         GLib.timeout_add(600000, self.clean_pid_store)
           
@@ -894,15 +895,7 @@ class Panel(Adw.Application):
         
         # Run the note-taking application using the specified command
         self.utils.run_app(config["take_note_app"]["cmd"])
-    
-    def HyprlandInstance(self):
-        """
-        Create and return an instance of the Hyprland class.
-    
-        Returns:
-            Hyprland: An instance of the Hyprland class.
-        """
-        return Hyprland()
+
     
     def get_hyprland_active_window(self):
         instance = Hyprland()
@@ -931,22 +924,7 @@ class Panel(Adw.Application):
         
         return monitor_info
     
-    def HyprInfo(self):
-        """
-        Retrieve information about the active window.
-    
-        This function retrieves information about the active window, such as its window class and address,
-        and returns the information as a dictionary.
-    
-        Returns:
-            dict: A dictionary containing information about the active window.
-        """
-        info = {}
-        info["window_class"] = self.instance.get_active_window().initial_wm_class
-        info["address"] = self.instance.get_active_window().address
-        return info
-
-    
+   
     def create_widgets(self, orientation, class_style):
         """
         Create widgets based on the specified orientation and class style.
@@ -1189,7 +1167,8 @@ class Panel(Adw.Application):
         return menu_buttons
 
     def sigkill_activewindow(self, *_):
-        pid = self.instance.get_active_window().pid
+        active_window = self.get_hyprland_active_window()
+        pid = active_window.pid
         cmd = "kill -9 {0}".format(pid)
         self.utils.run_app(cmd)
 
@@ -1213,7 +1192,8 @@ class Panel(Adw.Application):
 
     def copy_to_clipboard(self, *_):
         # lazy to not use wl-copy
-        self.utils.run_app("wl-copy {0}".format(self.instance.get_active_window().pid))
+        active_window = self.get_hyprland_active_window()
+        self.utils.run_app("wl-copy {0}".format(active_window.pid))
 
     def sink_input_info(self):
         pactl = "pactl list sink-inputs".split()
@@ -1224,7 +1204,8 @@ class Panel(Adw.Application):
         return info
 
     def toggle_mute_from_sink(self, *_):
-        pid = self.instance.get_active_window().pid
+        active_window = self.get_hyprland_active_window()
+        pid = active_window.pid
         info = self.sink_input_info()
         sinklist = info["sinklist"]
         for sink in sinklist:
@@ -1236,7 +1217,8 @@ class Panel(Adw.Application):
         self.utils.run_app("swaync-client -t")
 
     def disk_usage_by_pid(self):
-        pid = self.instance.get_active_window().pid
+        active_window = self.get_hyprland_active_window()
+        pid = active_window.pid
         p = psutil.Process(pid)
         io_counters = p.io_counters()
         disk_usage_process = io_counters[2] + io_counters[3]  # read_bytes + write_bytes
@@ -1257,7 +1239,7 @@ class Panel(Adw.Application):
             None
         """
         # Retrieve information about the active window
-        active_window = self.instance.get_active_window()
+        active_window = self.get_hyprland_active_window()
         initial_title = active_window.initial_title.lower()
         wm_class = active_window.initial_wm_class.lower()
         title = active_window.title.lower()
@@ -1428,19 +1410,16 @@ class Panel(Adw.Application):
         Returns:
             bool: True if the update was successful, False otherwise.
         """
-
+        window_changed = self.has_active_window_changed
+        if not window_changed:
+            return True
+        
         aw = self.get_hyprland_active_window()
         title, wclass, initial_title = aw.title, aw.wm_class, aw.initial_title
         title = self.modify_title(title)
+        if len(title) > 100:
+            title = title[:80]
         self.window_title.set_label(title)
-            
-        # Skip update if the active window hasn't changed or if in the "OVERVIEW" workspace
-        if self.active_window_changed != aw.address:
-            self.active_window_changed = aw.address
-        else:
-            return True
-        if self.instance.get_workspace_by_name("OVERVIEW"):
-            return True
         
         # Apply custom icon if available
         wclass = self.apply_custom_icon(wclass)
@@ -1451,29 +1430,32 @@ class Panel(Adw.Application):
         # Update title and icon
         self.update_title_and_icons(title, wclass, initial_title)
                     
-        return True
-    
+        return True  
     
     def has_active_window_changed(self):
+        # Get the currently active window
         active_window = self.get_hyprland_active_window()
+        
+        # Extract the address of the active window
         address = active_window.address
-        #check if panel started now then allow to update widgets
-        #if not, when you start the panel, the title from active window won't update
-        #until you move the focus for another window
-        #thus, checking once and returning True
+        
+        # Check if the panel has just started; if yes, update the widgets
+        # This ensures that the title from the active window updates when the panel starts
         if self.active_window_changed is None:
-            if self.hyprpanel_started_now == True:
+            if self.hyprpanel_started_now:
                 self.active_window_changed = address
                 self.hyprpanel_started_now = False
                 return True
-            
+    
+        # Check if the active window address has changed
         if self.active_window_changed != address:
             self.active_window_changed = address
             return True
         else:
+            # No change in the active window
             return False
-        
-            
+    
+         
     def update_widgets(self):
         """
         Update widgets based on the currently active window.
@@ -1483,14 +1465,15 @@ class Panel(Adw.Application):
         """
         
         # Skip update if in fullscreen or in the "OVERVIEW" workspace
-        if not self.instance.get_workspace_by_name("OVERVIEW"):
+        instance = Hyprland()
+        if not instance.get_workspace_by_name("OVERVIEW"):
             return True
         
         
         window_changed = self.has_active_window_changed()
                 
         # Extract window information
-        active_window = self.instance.get_active_window()
+        active_window = self.get_hyprland_active_window()
         title, workspace_id, pid, wclass, initial_title = self.extract_widget_info(active_window)
         
         # Apply custom icon if available
@@ -1559,8 +1542,8 @@ class Panel(Adw.Application):
             self.window_title.set_icon_name(wclass)
         else:
             desktop = self.utils.search_local_desktop(initial_title)
-            icon = desktop.split(".desktop")[0]
             if desktop:
+                icon = desktop.split(".desktop")[0]
                 self.window_title.set_icon_name(icon)
             
         self.tbclass.set_icon_name(wclass)
