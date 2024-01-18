@@ -76,7 +76,10 @@ class Panel(Adw.Application):
         self.popover_bookmarks = None
         self.popover_launcher = None 
         self.popover_clipboard = None
+        self.popover_wallpaper = None
         self.clipboard_text_copy = None
+        self.active_window_changed = None
+        self.hyprpanel_started_now = True
 
 
     def _initialize_utilities(self):
@@ -145,6 +148,7 @@ class Panel(Adw.Application):
         self.create_popover_menu_clipboard(app)
         self.create_menu_popover_launcher(app)
         self.create_menu_popover_bookmarks(app)
+        self.create_menu_popover_wallpaper(app)
         
     def do_activate(self):
         self.show_panels()
@@ -505,7 +509,7 @@ class Panel(Adw.Application):
                         18,
                         "TopBarBackground",
                     )
-        
+                    
     def create_menu_popover_bookmarks(self, app):
         LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
         self.menubutton_bookmarks = Gtk.Button()
@@ -572,14 +576,69 @@ class Panel(Adw.Application):
         self.popover_bookmarks.set_parent(self.menubutton_bookmarks)
         self.popover_bookmarks.popup()
         return self.popover_bookmarks  
+    
+    
+    
+    
+    
+    def create_menu_popover_wallpaper(self, app):
+        LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
+        self.menubutton_wallpaper = Gtk.Button()
+        self.menubutton_wallpaper.connect("clicked", self.open_popover_wallpaper)
+        self.menubutton_wallpaper.set_icon_name("livewallpaper-indicator")
+        self.top_panel_box_left.append(self.menubutton_wallpaper)
         
+    def create_popover_wallpaper(self, *_):
+        # Create a popover
+        self.popover_wallpaper = Gtk.Popover.new()  # Create a new popover menu
+        self.popover_wallpaper.set_autohide(True)
+        show_searchbar_action =  Gio.SimpleAction.new("show_searchbar")
+        show_searchbar_action.connect("activate",self.on_show_searchbar_action_actived)
+        app.add_action(show_searchbar_action)
+        self.scrolled_window = Gtk.ScrolledWindow()
+        self.scrolled_window .set_min_content_width(400)
+        self.scrolled_window .set_min_content_height(600)
+        self.main_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 0)
+        self.searchbar = Gtk.SearchEntry.new()
+        self.searchbar.grab_focus()
+        self.searchbar.connect("search_changed", self.on_search_entry_changed)
+        self.searchbar.set_focus_on_click(True)
+        self.searchbar.props.hexpand = True
+        self.searchbar.props.vexpand = True
+        self.main_box.append(self.searchbar)
+        self.listbox = Gtk.ListBox.new()
+        self.listbox.connect('row-selected', lambda widget, row: self.open_wallpaper((row)))
+        self.searchbar.set_key_capture_widget(self.top_panel)
+        self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.main_box.append(self.scrolled_window)
+        self.scrolled_window.set_child(self.listbox)
+        self.popover_wallpaper.set_child(self.main_box)
+        wallpapers_path = os.path.join(self.home, "Imagens/wallpapers")
+        if not os.path.exists(wallpapers_path):
+            os.mkdir(wallpapers_path)
+        wallpaper_files = os.listdir(wallpapers_path)
+        random.shuffle(wallpaper_files)
+        for wallpaper in wallpaper_files:
+            wallpaper = os.path.join(wallpapers_path, wallpaper)
+            row_hbox = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 0)
+            row_hbox.MYTEXT = wallpaper
+            image = Gtk.Image.new_from_file(wallpaper)
+            row_hbox.append(image)
+            row_hbox.add_css_class("wallpaper")
+            self.listbox.append(row_hbox)
+        self.listbox.set_filter_func(self.on_filter_invalidate)
+        # Create a menu button
+        self.popover_wallpaper.set_parent(self.menubutton_wallpaper)
+        self.popover_wallpaper.popup()
+        return self.popover_wallpaper
+
     def create_menu_popover_launcher(self, app):
         LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
         self.menubutton_launcher = Gtk.Button()
         self.menubutton_launcher.connect("clicked", self.open_popover_launcher)
         self.menubutton_launcher.set_icon_name("archlinux-symbolic")
         self.top_panel_box_systray.append(self.menubutton_launcher)
-        
+
     def create_popover_launcher(self, *_):
         # Create a popover
         self.popover_launcher = Gtk.Popover.new()  # Create a new popover menu
@@ -719,6 +778,12 @@ class Panel(Adw.Application):
         Popen(cmd)
         self.popover_bookmarks.popdown()
         
+    def open_wallpaper(self, x):
+        cmd = "swww img {0}".format(x.get_child().MYTEXT).split()
+        Popen(cmd)
+        self.popover_wallpaper.popdown()
+        
+
 
     def run_app_from_launcher(self, x):
         selected_text, filename = x.get_child().MYTEXT
@@ -733,6 +798,13 @@ class Panel(Adw.Application):
             if self.popover_bookmarks.is_visible():
                 self.popover_bookmarks.popdown()
         self.create_popover_bookmarks(app)
+        
+    def open_popover_wallpaper(self, *_):
+        LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
+        if self.popover_wallpaper:
+            if self.popover_wallpaper.is_visible():
+                self.popover_wallpaper.popdown()
+        self.create_popover_wallpaper(app)
         
     def open_popover_launcher(self, *_):
         LayerShell.set_keyboard_mode(self.top_panel, LayerShell.KeyboardMode.ON_DEMAND)
@@ -832,6 +904,11 @@ class Panel(Adw.Application):
         """
         return Hyprland()
     
+    def get_hyprland_active_window(self):
+        instance = Hyprland()
+        active_window = instance.get_active_window()
+        return active_window
+    
     def get_monitor_info(self):
         """
         Retrieve information about the connected monitors.
@@ -868,6 +945,7 @@ class Panel(Adw.Application):
         info["window_class"] = self.instance.get_active_window().initial_wm_class
         info["address"] = self.instance.get_active_window().address
         return info
+
     
     def create_widgets(self, orientation, class_style):
         """
@@ -1350,36 +1428,51 @@ class Panel(Adw.Application):
         Returns:
             bool: True if the update was successful, False otherwise.
         """
-        try:
-            active_window = self.instance.get_active_window()
-            # Extract window information
-            title, wclass, initial_title = self.extract_window_info(active_window)
-            title = self.modify_title(title)
-            self.window_title.set_label(title)
-                
-            # Skip update if the active window hasn't changed or if in the "OVERVIEW" workspace
-            if self.active_window_changed != active_window.address:
-                self.active_window_changed = active_window.address
-            else:
-                return True
-            if self.instance.get_workspace_by_name("OVERVIEW"):
-                return True
+
+        aw = self.get_hyprland_active_window()
+        title, wclass, initial_title = aw.title, aw.wm_class, aw.initial_title
+        title = self.modify_title(title)
+        self.window_title.set_label(title)
             
-            # Apply custom icon if available
-            wclass = self.apply_custom_icon(wclass)
-            
-            # Modify title based on certain patterns
-            title = self.modify_title(title)
-            
-            # Update title and icon
-            self.update_title_and_icons(title, wclass, initial_title)
-            
-        except Exception as e:
-            # Handle exceptions
-            pass
+        # Skip update if the active window hasn't changed or if in the "OVERVIEW" workspace
+        if self.active_window_changed != aw.address:
+            self.active_window_changed = aw.address
+        else:
+            return True
+        if self.instance.get_workspace_by_name("OVERVIEW"):
+            return True
         
+        # Apply custom icon if available
+        wclass = self.apply_custom_icon(wclass)
+        
+        # Modify title based on certain patterns
+        title = self.modify_title(title)
+        
+        # Update title and icon
+        self.update_title_and_icons(title, wclass, initial_title)
+                    
         return True
     
+    
+    def has_active_window_changed(self):
+        active_window = self.get_hyprland_active_window()
+        address = active_window.address
+        #check if panel started now then allow to update widgets
+        #if not, when you start the panel, the title from active window won't update
+        #until you move the focus for another window
+        #thus, checking once and returning True
+        if self.active_window_changed is None:
+            if self.hyprpanel_started_now == True:
+                self.active_window_changed = address
+                self.hyprpanel_started_now = False
+                return True
+            
+        if self.active_window_changed != address:
+            self.active_window_changed = address
+            return True
+        else:
+            return False
+            
     def update_widgets(self):
         """
         Update widgets based on the currently active window.
@@ -1387,41 +1480,42 @@ class Panel(Adw.Application):
         Returns:
             bool: True if the update was successful, False otherwise.
         """
-        try:
-            active_window = self.instance.get_active_window()
-            
-            # Skip update if in fullscreen or in the "OVERVIEW" workspace
-            if not self.instance.get_workspace_by_name("OVERVIEW"):
-                return True
-            
-            # Extract window information
-            title, workspace_id, pid, wclass, initial_title = self.extract_widget_info(active_window)
-            
-            # Apply custom icon if available
-            wclass = self.apply_custom_icon(wclass)
-            
-            # Fetch and format process information
-            mem_usage, exe, cpu_usage = self.fetch_process_info(pid)
-            
-            # Modify title based on certain patterns
-            title = self.modify_title(title)
-            
-            # Update widget labels and icons
-            self.update_widget_labels(workspace_id, pid, wclass, cpu_usage, mem_usage, exe)
-            
-            # Update title and icon
-            self.update_title_and_icons(title, wclass, initial_title)
-            
-        except Exception as e:
-            # Handle exceptions
-            pass
         
+        # Skip update if in fullscreen or in the "OVERVIEW" workspace
+        if not self.instance.get_workspace_by_name("OVERVIEW"):
+            return True
+        
+        
+        window_changed = self.has_active_window_changed()
+                
+        # Extract window information
+        active_window = self.instance.get_active_window()
+        title, workspace_id, pid, wclass, initial_title = self.extract_widget_info(active_window)
+        
+        # Apply custom icon if available
+        wclass = self.apply_custom_icon(wclass)
+        
+        # Fetch and format process information
+        mem_usage, exe, cpu_usage = self.fetch_process_info(pid)
+        
+        # Modify title based on certain patterns
+        title = self.modify_title(title)
+        
+        # Update widget labels and icons
+        self.update_widget_labels(workspace_id, pid, wclass, cpu_usage, mem_usage, exe, window_changed)
+        
+        # Update title and icon
+        if window_changed:
+            self.update_title_and_icons(title, wclass, initial_title)
+           
         return True
     
     # Helper methods
     def extract_window_info(self, active_window):
         """Extract and return window information."""
-        title = active_window.title[0:100]
+        title = active_window.title
+        if len(title) > 100:
+            title = active_window.title[0:100]
         wclass = active_window.initial_wm_class.lower()
         initial_title = active_window.initial_title
         return title, wclass, initial_title
@@ -1461,35 +1555,44 @@ class Panel(Adw.Application):
             title = title.split(" — ")[0]
         return title
     
+    def icon_exist(self, argument):
+        exist = [i for i in self.icon_theme_list if argument in i]
+        return exist
+    
     def update_title_and_icons(self, title, wclass, initial_title):
         """Update title and icons."""
-        self.window_title.set_icon_name(wclass)
+        icon_exist = self.icon_exist(wclass)
+        
+        if icon_exist:
+            self.window_title.set_icon_name(wclass)
+        else:
+            desktop = self.utils.search_local_desktop(initial_title)
+            icon = desktop.split(".desktop")[0]
+            if desktop:
+                self.window_title.set_icon_name(icon)
+            
         self.tbclass.set_icon_name(wclass)
         self.window_title.set_label(title)
+
         if initial_title == "zsh":
             label = title.split(" ")[0]
-            icon_exist = [i for i in self.icon_theme_list if label in i]
+            icon_exist = self.icon_exist(label)
             if icon_exist:
                 self.window_title.set_icon_name(label)
                 self.tbclass.set_icon_name("{0}".format(label))
-        icon_exist = [i for i in self.icon_theme_list if wclass in i]
-        if not icon_exist:
-            icon = icon_exist[-1]
-            self.window_title.set_icon_name(icon)
-            self.tbclass.set_icon_name(icon)
-            
+
     
-    def update_widget_labels(self, workspace_id, pid, wclass, cpu_usage, mem_usage, exe):
+    def update_widget_labels(self, workspace_id, pid, wclass, cpu_usage, mem_usage, exe, window_changed):
         """Update widget labels."""
+        if window_changed:
+            self.tbpid.set_label("PID: {0}".format(pid))
+            self.tbclass.set_label("{0}".format(wclass))
+            self.tbexe.set_label("Exe: {0}".format(exe))
+            self.tbdiskusage.set_label("Disk: {0}MB".format(self.disk_usage_by_pid()))
         self.tbworkspace.set_label("W: {0}".format(workspace_id))
-        self.tbpid.set_label("PID: {0}".format(pid))
-        self.tbclass.set_label("{0}".format(wclass))
         self.tbcpusage.set_label("CPU: {0}%".format(cpu_usage))
         self.tbmemusage.set_label("MEM: {0}".format(mem_usage))
-        self.tbexe.set_label("Exe: {0}".format(exe))
-        self.tbdiskusage.set_label("Disk: {0}MB".format(self.disk_usage_by_pid()))
         self.volume_watch()
-    
     
 app = Panel(application_id="com.hyprpanel.GtkApplication")
 app.run(None)

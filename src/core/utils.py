@@ -92,20 +92,25 @@ class Utils(Adw.Application):
 
 
     def search_local_desktop(self, initial_title):
+        
+        desktop = None
+        
         for deskfile in os.listdir(self.webapps_applications):
+            
             if deskfile.startswith("chrome") or deskfile.startswith("msedge"):
                 pass
             else:
                 continue
+            
             webapp_path = os.path.join(self.webapps_applications, deskfile)
-            #necessary initial title without lower()
-            desktop_file_found = self.search_str_inside_file(webapp_path, initial_title)
+            desktop_file_found = self.search_str_inside_file(webapp_path, initial_title.lower())
+            
             if desktop_file_found:
-                cmd = "gtk-launch {0}".format(deskfile)
-                icon = deskfile.split(".desktop")[0]
+                desktop = deskfile
                 break
-        if deskfile:
-            return deskfile
+            
+        if desktop:
+            return desktop
         else:
             return None
     

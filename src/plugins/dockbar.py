@@ -1,4 +1,5 @@
 import os
+import signal
 import toml
 import gi
 import json
@@ -109,6 +110,7 @@ class Dockbar(Adw.Application):
         return True
     
 
+        
     def update_taskbar(self, pid, wm_class, address, initial_title, title, orientation, class_style, callback=None):
         button = self.utils.CreateTaskbarLauncher(wm_class, address, title, initial_title, orientation, class_style)
         self.taskbar.append(button)
@@ -119,6 +121,7 @@ class Dockbar(Adw.Application):
     
     def check_pids(self):   
         instance = Hyprland()
+        #*** need a fix since this code depends hyprshell plugin
         if not instance.get_workspace_by_name("OVERVIEW"):
             return True
         #since I am lazy to verify what could possibly go wrong
@@ -137,10 +140,12 @@ class Dockbar(Adw.Application):
                 address = active_window.address
                 title = active_window.title
                 wm_class = active_window.wm_class
+                pid = active_window.pid
+                
                 #quick fix for nautilus initial class
                 if "org.gnome.nautilus" in wm_class.lower():
                     initial_title = "nautilus"
-                pid = active_window.pid
+
                 if address in self.buttons_address:
                     addr = self.buttons_address[address]
                     btn = addr[0]
@@ -148,7 +153,6 @@ class Dockbar(Adw.Application):
                     if title != btn_title :
                         self.taskbar.remove(btn)
                         self.update_taskbar(pid, wm_class, address, initial_title, title, "h", "taskbar")
-
         except:
             pass  
         return True
@@ -165,6 +169,8 @@ class Dockbar(Adw.Application):
                 try:
                     self.taskbar.remove(button)
                     self.taskbar_list.remove(pid)
+                    del self.buttons_pid[pid]
+                    del self.buttons_address[address] 
                 except ValueError:
                     pass  
         return True
