@@ -1403,33 +1403,23 @@ class Panel(Adw.Application):
                     self.tbcard.set_label("{0}".format(sink.description))
     
                         
-    def update_title_topbar(self):
-        """
-        Update the title bar based on the currently active window.
-    
-        Returns:
-            bool: True if the update was successful, False otherwise.
-        """
-        window_changed = self.has_active_window_changed
+    def update_title_topbar(self):        
+        window_changed = self.has_active_window_changed()
         if not window_changed:
-            return True
+            return True     
+        # Extract window information
+        active_window = self.get_hyprland_active_window()
+        title, workspace_id, pid, wclass, initial_title = self.extract_widget_info(active_window)
         
-        aw = self.get_hyprland_active_window()
-        title, wclass, initial_title = aw.title, aw.wm_class, aw.initial_title
-        title = self.modify_title(title)
         if len(title) > 100:
             title = title[:80]
-        self.window_title.set_label(title)
         
         # Apply custom icon if available
-        wclass = self.apply_custom_icon(wclass)
-        
-        # Modify title based on certain patterns
-        title = self.modify_title(title)
+        wclass = self.apply_custom_icon(wclass.lower())
         
         # Update title and icon
         self.update_title_and_icons(title, wclass, initial_title)
-                    
+                
         return True  
     
     def has_active_window_changed(self):
