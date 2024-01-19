@@ -1071,40 +1071,40 @@ class Panel(Adw.Application):
         else:
             self.utils.run_app("pactl -- set-sink-volume 0 +8%")
 
-    def left_gesture_left_click(self):
+    def left_gesture_left_click(self, *_):
         # data format is (self, gesture, data, x, y)
         cmd = self.panel_cfg["left_side_gestures"]["left_click"]
         self.utils.run_app(cmd, True)
 
-    def left_gesture_right_click(self):
+    def left_gesture_right_click(self, *_):
         cmd = self.panel_cfg["left_side_gestures"]["right_click"]
         self.utils.run_app(cmd, True)
 
-    def left_gesture_middle_click(self):
+    def left_gesture_middle_click(self, *_):
         cmd = self.panel_cfg["left_side_gestures"]["middle_click"]
         self.utils.run_app(cmd, True)
 
-    def center_gesture_left_click(self):
+    def center_gesture_left_click(self, *_):
         cmd = self.panel_cfg["center_side_gestures"]["left_click"]
         self.utils.run_app(cmd, True)
 
-    def center_gesture_middle_click(self):
+    def center_gesture_middle_click(self, *_):
         cmd = self.panel_cfg["center_side_gestures"]["middle_click"]
         self.utils.run_app(cmd, True)
 
-    def center_gesture_right_click(self):
+    def center_gesture_right_click(self, *_):
         cmd = self.panel_cfg["left_side_gestures"]["right_click"]
         self.utils.run_app(cmd, True)
 
-    def right_gesture_left_click(self):
+    def right_gesture_left_click(self, *_):
         cmd = self.panel_cfg["right_side_gestures"]["left_click"]
         self.utils.run_app(cmd, True)
 
-    def right_gesture_right_click(self):
+    def right_gesture_right_click(self, *_):
         cmd = self.panel_cfg["right_side_gestures"]["right_click"]
         self.utils.run_app(cmd, True)
 
-    def right_gesture_middle_click(self):
+    def right_gesture_middle_click(self, *_):
         cmd = self.panel_cfg["right_side_gestures"]["middle_click"]
         self.utils.run_app(cmd, True)
 
@@ -1235,8 +1235,11 @@ class Panel(Adw.Application):
     def clean_pid_store(self):
         # [optimization]
         # every 10 minutes check for non-existent pids and clean the dict
+        instance = Hyprland()
+        windows = instance.get_windows()
+        pid_list = [i.pid for i in windows]
         for pid in self.psutil_store.keys():
-            if pid not in self.pid_list:
+            if pid not in pid_list:
                 del self.psutil_store[pid]
 
     def copy_to_clipboard(self, *_):
