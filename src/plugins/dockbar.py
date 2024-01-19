@@ -342,7 +342,7 @@ class Dockbar(Adw.Application):
             initial_title: {
                 "cmd": cmd,
                 "icon": icon,
-                "wclass": wclass:
+                "wclass": wclass,
                 "initial_title": initial_title,
             }
         }
