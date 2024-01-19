@@ -140,11 +140,10 @@ class Utils(Adw.Application):
     def search_desktop(self, wm_class):
         all_apps = Gio.AppInfo.get_all()
         desktop_files = [
-            i.get_id().lower()
-            for i in all_apps
-            if wm_class in i.get_display_name().lower()
+            i.get_id().lower() for i in all_apps if wm_class in i.get_id().lower()
         ]
         if desktop_files:
+            print(desktop_files)
             return desktop_files[0]
         else:
             return None

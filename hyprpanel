@@ -1449,7 +1449,9 @@ class Panel(Adw.Application):
         title = self.modify_title(title)
 
         # Apply custom icon if available
-        wclass = self.apply_custom_icon(wclass.lower())
+        custom_icon = self.apply_custom_icon(wclass.lower())
+        if custom_icon:
+            wclass = custom_icon
 
         # Update title and icon
         self.update_title_and_icons(title, wclass, initial_title)
@@ -1500,13 +1502,10 @@ class Panel(Adw.Application):
             active_window
         )
 
-        if self.window_title_from_topbar == title:
-            return True
-        else:
-            self.window_title_from_topbar = title
-
         # Apply custom icon if available
-        wclass = self.apply_custom_icon(wclass)
+        custom_icon = self.apply_custom_icon(wclass.lower())
+        if custom_icon:
+            wclass = custom_icon
 
         # Fetch and format process information
         mem_usage, exe, cpu_usage = self.fetch_process_info(pid)
@@ -1536,11 +1535,9 @@ class Panel(Adw.Application):
 
     def apply_custom_icon(self, wclass):
         """Apply custom icon if available."""
-        try:
-            return self.panel_cfg["change_icon_title"][wclass]
-        except Exception as e:
-            print(e)
-        return wclass
+        panel_cfg = self.panel_cfg["change_icon_title"]
+        if wclass in panel_cfg:
+            return panel_cfg[wclass]
 
     def fetch_process_info(self, pid):
         """Fetch and return process information."""
@@ -1578,8 +1575,15 @@ class Panel(Adw.Application):
 
             if desk_local:
                 if "-Default" in desk_local:
-                    desk_local = desk_local.split(".desktop")[0]
-                    self.window_title.set_icon_name(desk_local)
+                    icon = desk_local.split(".desktop")[0]
+                    self.window_title.set_icon_name(icon)
+            else:
+                desk = self.utils.search_desktop(wm_class.lower())
+                if desk:
+                    icon = desk.split(".desktop")[0]
+                    if "." in icon:
+                        icon = icon.split(".")[-1]
+                    self.window_title.set_icon_name(icon)
 
         self.tbclass.set_icon_name(wm_class)
         self.window_title.set_label(title)
