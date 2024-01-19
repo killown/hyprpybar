@@ -91,6 +91,10 @@ class Panel(Adw.Application):
         self.top_panel_box_left = Gtk.Box(spacing=10)
         self.top_panel_box_systray = Gtk.Box(spacing=2)
         self.top_panel_box_for_buttons = Gtk.Box(spacing=6)
+        self.top_panel_box_window_title = Gtk.Box(spacing=6)
+        self.top_panel_box_widgets_left = Gtk.Box(spacing=6)
+        self.top_panel_box_left.append(self.top_panel_box_window_title)
+        self.top_panel_box_left.append(self.top_panel_box_widgets_left)
         self.top_panel_box_right = Gtk.Box(spacing=10)
         self.top_panel_grid_right = Gtk.Grid(column_spacing=10)
         self.top_panel_grid_right.attach(self.top_panel_box_right, 1, 0, 1, 2)
@@ -446,6 +450,8 @@ class Panel(Adw.Application):
 
     def setup_panels(self):
         self.top_panel_box_left.add_css_class("top_panel_box_left")
+        self.top_panel_box_window_title.add_css_class("top_panel_box_window_title")
+        self.top_panel_box_widgets_left.add_css_class("top_panel_box_widgets_left")
         self.top_panel_box_right.add_css_class("top_panel_box_right")
         self.top_panel_box_systray.add_css_class("top_panel_box_systray")
         self.top_panel_box_center.add_css_class("top_panel_box_center")
@@ -462,7 +468,7 @@ class Panel(Adw.Application):
 
         # setup window title
         self.window_title = Adw.ButtonContent()
-        self.top_panel_box_left.append(self.window_title)
+        self.top_panel_box_window_title.append(self.window_title)
         self.window_title.add_css_class("WindowTitle")
 
         self.menus = self.create_new_menu()
@@ -538,7 +544,7 @@ class Panel(Adw.Application):
         self.menubutton_bookmarks = Gtk.Button()
         self.menubutton_bookmarks.connect("clicked", self.open_popover_bookmarks)
         self.menubutton_bookmarks.set_icon_name("bookmarks-organize-symbolic")
-        self.top_panel_box_left.append(self.menubutton_bookmarks)
+        self.top_panel_box_widgets_left.append(self.menubutton_bookmarks)
 
     def create_popover_bookmarks(self, *_):
         # Create a popover
@@ -607,7 +613,7 @@ class Panel(Adw.Application):
         self.menubutton_wallpaper = Gtk.Button()
         self.menubutton_wallpaper.connect("clicked", self.open_popover_wallpaper)
         self.menubutton_wallpaper.set_icon_name("livewallpaper-indicator")
-        self.top_panel_box_left.append(self.menubutton_wallpaper)
+        self.top_panel_box_widgets_left.append(self.menubutton_wallpaper)
 
     def create_popover_wallpaper(self, *_):
         # Create a popover
@@ -641,6 +647,11 @@ class Panel(Adw.Application):
             os.mkdir(wallpapers_path)
         wallpaper_files = os.listdir(wallpapers_path)
         random.shuffle(wallpaper_files)
+        # since it's not using thumbnails
+        # use only a few random wallpapers
+        # with the goal to load the popover faster
+        # later thumbnails implementation needed
+        wallpaper_files = wallpaper_files[:8]
         for wallpaper in wallpaper_files:
             wallpaper = os.path.join(wallpapers_path, wallpaper)
             row_hbox = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 0)
@@ -766,7 +777,7 @@ class Panel(Adw.Application):
         clipboard_history = clipboard_history.split("\n")
         for i in clipboard_history:
             row_hbox = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 0)
-            row_hbox.MYTEXT = i.split("\t")[1]  # to filter later
+            row_hbox.MYTEXT = i
             self.listbox.append(row_hbox)
             line = Gtk.Label.new()
             line.set_label(i)
@@ -787,10 +798,10 @@ class Panel(Adw.Application):
     def wl_copy_clipboard(self, x):
         selected_text = x.get_child().MYTEXT
         echo = subprocess.Popen(("echo", selected_text), stdout=subprocess.PIPE)
+        echo.wait()
         selected_text = subprocess.check_output(
             ("cliphist", "decode"), stdin=echo.stdout
         ).decode()
-        echo.wait()
         # not gonna use buggy pyperclip
         Popen(["wl-copy", selected_text])
         self.popover_clipboard.popdown()
@@ -871,13 +882,14 @@ class Panel(Adw.Application):
         and it will continue to be called each time a row changes (via [method`Gtk`.ListBoxRow.changed])
         or when [method`Gtk`.ListBox.invalidate_filter] is called."""
         searchentry.grab_focus()
-        self.listbox.invalidate_filter()  # run filter (run self.on_filter_invalidate look at self.listbox.set_filter_func(self.on_filter_invalidate) )
+        # run filter (run self.on_filter_invalidate look at self.listbox.set_filter_func(self.on_filter_invalidate) )
+        self.listbox.invalidate_filter()
 
     def on_filter_invalidate(self, row):
         text_to_search = (
             self.searchbar.get_text().strip()
         )  # get text from searchentry and remove space from start and end
-        if type(row) != str:
+        if type(row) is not str:
             row = row.get_child().MYTEXT[0]
         row = row.lower().strip()
         if (
@@ -1059,39 +1071,40 @@ class Panel(Adw.Application):
         else:
             self.utils.run_app("pactl -- set-sink-volume 0 +8%")
 
-    def left_gesture_left_click(self, gesture, data, x, y):
+    def left_gesture_left_click(self):
+        # data format is (self, gesture, data, x, y)
         cmd = self.panel_cfg["left_side_gestures"]["left_click"]
         self.utils.run_app(cmd, True)
 
-    def left_gesture_right_click(self, gesture, data, x, y):
+    def left_gesture_right_click(self):
         cmd = self.panel_cfg["left_side_gestures"]["right_click"]
         self.utils.run_app(cmd, True)
 
-    def left_gesture_middle_click(self, gesture, data, x, y):
+    def left_gesture_middle_click(self):
         cmd = self.panel_cfg["left_side_gestures"]["middle_click"]
         self.utils.run_app(cmd, True)
 
-    def center_gesture_left_click(self, gesture, data, x, y):
+    def center_gesture_left_click(self):
         cmd = self.panel_cfg["center_side_gestures"]["left_click"]
         self.utils.run_app(cmd, True)
 
-    def center_gesture_middle_click(self, gesture, data, x, y):
+    def center_gesture_middle_click(self):
         cmd = self.panel_cfg["center_side_gestures"]["middle_click"]
         self.utils.run_app(cmd, True)
 
-    def center_gesture_right_click(self, gesture, data, x, y):
+    def center_gesture_right_click(self):
         cmd = self.panel_cfg["left_side_gestures"]["right_click"]
         self.utils.run_app(cmd, True)
 
-    def right_gesture_left_click(self, gesture, data, x, y):
+    def right_gesture_left_click(self):
         cmd = self.panel_cfg["right_side_gestures"]["left_click"]
         self.utils.run_app(cmd, True)
 
-    def right_gesture_right_click(self, gesture, data, x, y):
+    def right_gesture_right_click(self):
         cmd = self.panel_cfg["right_side_gestures"]["right_click"]
         self.utils.run_app(cmd, True)
 
-    def right_gesture_middle_click(self, gesture, data, x, y):
+    def right_gesture_middle_click(self):
         cmd = self.panel_cfg["right_side_gestures"]["middle_click"]
         self.utils.run_app(cmd, True)
 
@@ -1434,25 +1447,23 @@ class Panel(Adw.Application):
     def update_title_topbar(self):
         # Extract window information
         active_window = self.get_hyprland_active_window()
-        title, workspace_id, pid, wclass, initial_title = self.extract_widget_info(
-            active_window
-        )
+        title, _, _, wclass, initial_title = self.extract_widget_info(active_window)
         if self.window_title_from_topbar == title:
             return True
         else:
             self.window_title_from_topbar = title
 
-        if len(title) > 100:
-            title = title[:80]
-
         # Modify title based on certain patterns
         title = self.modify_title(title)
 
+        if len(title) > 100:
+            title = title[:80]
+
         # Apply custom icon if available
-        custom_icon = self.apply_custom_icon(wclass.lower())
+        custom_icon = self.apply_custom_icon(wclass)
         if custom_icon:
             wclass = custom_icon
-
+        print(wclass * 100)
         # Update title and icon
         self.update_title_and_icons(title, wclass, initial_title)
 
@@ -1560,15 +1571,20 @@ class Panel(Adw.Application):
         return title
 
     def icon_exist(self, argument):
-        exist = [i for i in self.icon_theme_list if argument in i]
+        exist = [i for i in self.icon_theme_list if argument in i.lower()]
         return exist
 
     def update_title_and_icons(self, title, wm_class, initial_title):
         """Update title and icons."""
         icon_exist = self.icon_exist(wm_class)
-
+        self.tbclass.set_icon_name(wm_class)
         if icon_exist:
-            self.window_title.set_icon_name(wm_class)
+            self.window_title.set_icon_name(icon_exist[0])
+        if not icon_exist:
+            icon_exist = self.icon_exist(initial_title.lower())
+            if icon_exist:
+                self.window_title.set_icon_name(icon_exist[0])
+
         else:
             # Search for desktop files based on wmclass and initial_title
             desk_local = self.utils.search_local_desktop(initial_title.lower())
@@ -1577,15 +1593,7 @@ class Panel(Adw.Application):
                 if "-Default" in desk_local:
                     icon = desk_local.split(".desktop")[0]
                     self.window_title.set_icon_name(icon)
-            else:
-                desk = self.utils.search_desktop(wm_class.lower())
-                if desk:
-                    icon = desk.split(".desktop")[0]
-                    if "." in icon:
-                        icon = icon.split(".")[-1]
-                    self.window_title.set_icon_name(icon)
 
-        self.tbclass.set_icon_name(wm_class)
         self.window_title.set_label(title)
 
         if initial_title == "zsh":
