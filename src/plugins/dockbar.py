@@ -165,7 +165,7 @@ class Dockbar(Adw.Application):
                 initial_title = "nautilus"
     
             # Create a taskbar launcher button using utility function
-            button = self.utils.CreateTaskbarLauncher(wm_class, address, title, initial_title, orientation, class_style)
+            button = self.utils.create_taskbar_launcher(wm_class, address, title, initial_title, orientation, class_style)
     
             # Append the button to the taskbar
             self.taskbar.append(button)
@@ -184,7 +184,7 @@ class Dockbar(Adw.Application):
             
     def update_taskbar(self, pid, wm_class, address, initial_title, title, orientation, class_style, callback=None):
         # Create a taskbar launcher button using utility function
-        button = self.utils.CreateTaskbarLauncher(wm_class, address, title, initial_title, orientation, class_style)
+        button = self.utils.create_taskbar_launcher(wm_class, address, title, initial_title, orientation, class_style)
     
         # Append the button to the taskbar
         self.taskbar.append(button)

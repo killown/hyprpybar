@@ -253,7 +253,6 @@ class Panel(Adw.Application):
         GLib.timeout_add(1000, self.update_clock)
         GLib.timeout_add(200, self.update_widgets)
         GLib.timeout_add(200, self.update_title_topbar)
-        GLib.timeout_add_seconds(1, self.update_title_topbar) 
         GLib.timeout_add(10000, self.mullvad_status)
         GLib.timeout_add(600000, self.clean_pid_store)
           
@@ -1403,16 +1402,16 @@ class Panel(Adw.Application):
                     self.tbcard.set_label("{0}".format(sink.description))
     
                         
-    def update_title_topbar(self):        
-        window_changed = self.has_active_window_changed()
-        if not window_changed:
-            return True     
+    def update_title_topbar(self):           
         # Extract window information
         active_window = self.get_hyprland_active_window()
         title, workspace_id, pid, wclass, initial_title = self.extract_widget_info(active_window)
         
         if len(title) > 100:
             title = title[:80]
+        
+        # Modify title based on certain patterns
+        title = self.modify_title(title)
         
         # Apply custom icon if available
         wclass = self.apply_custom_icon(wclass.lower())
@@ -1524,20 +1523,23 @@ class Panel(Adw.Application):
         exist = [i for i in self.icon_theme_list if argument in i]
         return exist
     
-    def update_title_and_icons(self, title, wclass, initial_title):
+    def update_title_and_icons(self, title, wm_class, initial_title):
         """Update title and icons."""
-        icon_exist = self.icon_exist(wclass)
+        icon_exist = self.icon_exist(wm_class)
         
         if icon_exist:
-            self.window_title.set_icon_name(wclass)
+            self.window_title.set_icon_name(wm_class)
         else:
-            desktop = self.utils.search_local_desktop(initial_title)
-            if desktop:
-                icon = desktop.split(".desktop")[0]
-                self.window_title.set_icon_name(icon)
-            
-        self.tbclass.set_icon_name(wclass)
-        self.window_title.set_label(title)
+            # Search for desktop files based on wmclass and initial_title
+            desk_local = self.utils.search_local_desktop(initial_title.lower())
+
+            if desk_local:
+                if "-Default" in desk_local:
+                    desk_local = desk_local.split(".desktop")[0]
+                    icon = desk_local
+                   
+        self.tbclass.set_icon_name(wm_class)
+        self.window_title.set_label(title) 
 
         if initial_title == "zsh":
             label = title.split(" ")[0]
