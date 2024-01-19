@@ -1,6 +1,7 @@
 import os
 import toml
 import gi
+
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk
@@ -11,6 +12,7 @@ import math
 import pulsectl
 from hyprpy import Hyprland
 import psutil
+
 
 class Utils(Adw.Application):
     def __init__(self, **kwargs):
@@ -28,18 +30,29 @@ class Utils(Adw.Application):
         self.psutil_store = {}
         self.panel_cfg = self.load_topbar_config()
         self.icon_theme_list = Gtk.IconTheme().get_icon_names()
-        
+
     def run_app(self, cmd, wclass=None, initial_title=None, cmd_mode=True):
         if wclass:
             instance = Hyprland()
             address_list = []
             if not initial_title:
-                address_list = [i.address for i in instance.get_windows() if i.wm_class.lower() == wclass]
+                address_list = [
+                    i.address
+                    for i in instance.get_windows()
+                    if i.wm_class.lower() == wclass
+                ]
             if initial_title:
-                address_list = [i.address for i in instance.get_windows() if i.wm_class.lower() == wclass and i.initial_title.lower() == initial_title]
+                address_list = [
+                    i.address
+                    for i in instance.get_windows()
+                    if i.wm_class.lower() == wclass
+                    and i.initial_title.lower() == initial_title
+                ]
             if address_list:
                 address = address_list[0]
-                cmd = "hyprctl dispatch hyprshell:toggleoverview; hyprctl dispatch focuswindow address:{0};hyprctl dispatch fullscreen 1".format(address)
+                cmd = "hyprctl dispatch hyprshell:toggleoverview;hyprctl dispatch focuswindow address:{0};hyprctl dispatch fullscreen 1".format(
+                    address
+                )
                 for c in cmd.split(";"):
                     try:
                         Popen(c.split(), start_new_session=True)
@@ -63,110 +76,121 @@ class Utils(Adw.Application):
                 Popen(cmd.split(), start_new_session=True)
             except Exception as e:
                 print(e)
-                
+
     def CreateFromAppList(self, config, orientation, class_style, callback=None):
         # Map orientation to Gtk.Orientation
         if orientation == "h":
             orientation = Gtk.Orientation.HORIZONTAL
         if orientation == "v":
             orientation = Gtk.Orientation.VERTICAL
-    
+
         # Create a Gtk.Box with specified spacing and orientation
         box = Gtk.Box(spacing=10, orientation=orientation)
         box.add_css_class("box_from_dockbar")  # Add a CSS class to the box for styling
-    
+
         # Load configuration from a file using the toml library
         with open(config, "r") as f:
             config = toml.load(f)
-    
+
             # Iterate through each application in the configuration
             for app in config:
                 wclass = None
                 initial_title = None
-    
+
                 try:
                     # Try to get the 'wclass' field from the configuration, if present
                     wclass = config[app]["wclass"]
                 except KeyError:
                     pass
-    
+
                 # Create a button using the CreateButton method
                 button = self.CreateButton(
-                    config[app]["icon"], config[app]["cmd"], class_style, wclass, initial_title
+                    config[app]["icon"],
+                    config[app]["cmd"],
+                    class_style,
+                    wclass,
+                    initial_title,
                 )
-    
+
                 # If a callback is provided, create a gesture for the button
                 if callback is not None:
                     self.CreateGesture(button, 3, callback)
-    
+
                 # Append the button to the Gtk.Box
                 box.append(button)
-    
+
         # Return the created Gtk.Box
         return box
 
-
     def search_local_desktop(self, initial_title):
-              
         for deskfile in os.listdir(self.webapps_applications):
-            
             if deskfile.startswith("chrome") or deskfile.startswith("msedge"):
                 pass
             else:
                 continue
             webapp_path = os.path.join(self.webapps_applications, deskfile)
-            desktop_file_found = self.search_str_inside_file(webapp_path, initial_title.lower())
-            
+            desktop_file_found = self.search_str_inside_file(
+                webapp_path, initial_title.lower()
+            )
+
             if desktop_file_found:
-                print(deskfile * 10)
-                desktop = deskfile
-                break
-            
-        if deskfile:
-            return deskfile
-        else:
-            return None
-          
+                return deskfile
+        return None
+
     def search_desktop(self, wm_class):
         all_apps = Gio.AppInfo.get_all()
-        desktop_files = [i.get_id().lower() for i in all_apps if wm_class in i.get_display_name().lower()]
+        desktop_files = [
+            i.get_id().lower()
+            for i in all_apps
+            if wm_class in i.get_display_name().lower()
+        ]
         if desktop_files:
             return desktop_files[0]
         else:
             return None
-        
-        
-    def create_taskbar_launcher(self, wmclass, address, title, initial_title, orientation, class_style, callback=None):
+
+    def create_taskbar_launcher(
+        self,
+        wmclass,
+        address,
+        title,
+        initial_title,
+        orientation,
+        class_style,
+        callback=None,
+    ):
         # Map orientation to Gtk.Orientation
         if orientation == "h":
             orientation = Gtk.Orientation.HORIZONTAL
         elif orientation == "v":
             orientation = Gtk.Orientation.VERTICAL
-    
+
         cmd = None
-    
+
         # Check if a window with the given address is already open
         processes = psutil.process_iter()
         instance = Hyprland()
         pid = [i.pid for i in instance.get_windows() if i.address == address]
-    
+
         if pid:
             process_id = pid[0]
             if process_id != -1:
                 # If window is found, construct command for the launcher
-                cmd = "hyprctl dispatch hyprshell:toggleoverview; hyprctl dispatch focuswindow address:{0};hyprctl dispatch fullscreen 1".format(address)
-    
+                cmd = "hyprctl dispatch hyprshell:toggleoverview; hyprctl dispatch focuswindow address:{0};hyprctl dispatch fullscreen 1".format(
+                    address
+                )
+
         icon = wmclass
         all_apps = Gio.AppInfo.get_all()
-    
+
         # Search for desktop files based on wmclass and initial_title
         desk = self.search_desktop(wmclass)
         desk_local = self.search_local_desktop(initial_title)
-    
+
         # Load dockbar configuration from a file
         with open(self.dockbar_config, "r") as f:
             config = toml.load(f)
-    
+
         try:
             # Try to get icon information from the configuration file
             icon = config[wmclass.lower()]["icon"]
@@ -174,25 +198,25 @@ class Utils(Adw.Application):
             desk_local = None
         except KeyError:
             pass
-    
+
         # If cmd is still None, construct command based on desktop file information
         if cmd is None:
             if wmclass not in desk_local:
                 cmd = "gtk-launch {}".format(desk)
             else:
                 cmd = "gtk-launch {}".format(desk_local)
-    
+
         if desk_local:
             desk_local = desk_local.split(".desktop")[0]
         if desk_local is None:
             if desk:
                 desk = desk.split(".desktop")[0]
-    
+
         # Iterate through all available applications to get the icon
         for i in all_apps:
             id = i.get_id().lower()
             name = i.get_name().lower()
-    
+
             if desk_local is not None and "-Default" in desk_local:
                 icon = desk_local
                 break
@@ -203,7 +227,7 @@ class Utils(Adw.Application):
             else:
                 if wmclass in id:
                     icon = i.get_icon()
-    
+
         # Special case for "zsh" initial_title
         if initial_title == "zsh":
             label = title.split(" ")[0]
@@ -212,30 +236,33 @@ class Utils(Adw.Application):
                 icon = icon_exist[-1]
             except IndexError:
                 pass
-    
+
         initial_title = " ".join(i.capitalize() for i in initial_title.split())
-    
+
         # Create a clickable image button and attach a gesture if callback is provided
-        button = self.create_clicable_image(icon, cmd, class_style, wmclass, title, initial_title)
+        button = self.create_clicable_image(
+            icon, cmd, class_style, wmclass, title, initial_title
+        )
         if callback is not None:
             self.CreateGesture(button, 3, callback)
-    
+
         return button
-        
-        
+
     def search_str_inside_file(self, file_path, word):
-        with open(file_path, 'r') as file:
+        with open(file_path, "r") as file:
             content = file.read()
             if word.lower() in content.lower():
                 return True
             else:
                 return False
-            
-    def create_clicable_image(self, icon, cmd, Class_Style, wclass, title, initial_title):
-        box  = Gtk.Box.new( Gtk.Orientation.HORIZONTAL, spacing=6)
+
+    def create_clicable_image(
+        self, icon, cmd, Class_Style, wclass, title, initial_title
+    ):
+        box = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, spacing=6)
         box.add_css_class(Class_Style)
         image = None
-        #panel.toml has filters for missing icons
+        # panel.toml has filters for missing icons
         try:
             icon = self.panel_cfg["change_icon_title"][icon]
         except:
@@ -249,15 +276,15 @@ class Utils(Adw.Application):
         image.props.margin_end = 5
         image.set_halign(Gtk.Align.END)
         label = Gtk.Label.new()
-        #zsh use titles instead of initial title
+        # zsh use titles instead of initial title
         use_this_title = initial_title
         if "zsh" == initial_title.lower():
             use_this_title = title
-           
-        desktop_local_file = self.search_local_desktop(initial_title) 
+
+        desktop_local_file = self.search_local_desktop(initial_title)
         if desktop_local_file:
-            icon = desktop_local_file.split(".desktop")[0]            
-                    
+            icon = desktop_local_file.split(".desktop")[0]
+
         label.set_label(use_this_title)
         label.add_css_class("clicable_image_label")
         box.append(image)
@@ -265,8 +292,7 @@ class Utils(Adw.Application):
         box.add_css_class("box_from_clicable_image")
         self.CreateGesture(box, 1, lambda *_: self.run_app(cmd, wclass, initial_title))
         return box
-        
-                    
+
     def CreateButton(self, icon_name, cmd, Class_Style, wclass, initial_title=None):
         box = Gtk.Box(spacing=6)
         box.add_css_class(Class_Style)
@@ -277,10 +303,12 @@ class Utils(Adw.Application):
         if cmd == "NULL":
             button.set_sensitive(False)
             return button
-        self.CreateGesture(button, 1, lambda *_: self.run_app(cmd, wclass, initial_title))
+        self.CreateGesture(
+            button, 1, lambda *_: self.run_app(cmd, wclass, initial_title)
+        )
         self.CreateGesture(button, 3, lambda *_: self.dockbar_remove(icon_name))
         return button
-        
+
     def load_topbar_config(self):
         with open(self.topbar_config, "r") as f:
             return toml.load(f)
@@ -290,7 +318,7 @@ class Utils(Adw.Application):
         gesture.connect("released", callback)
         gesture.set_button(mouse_button)
         widget.add_controller(gesture)
-        
+
     def convert_size(self, size_bytes):
         if size_bytes == 0:
             return "0B"
@@ -299,16 +327,13 @@ class Utils(Adw.Application):
         p = math.pow(1024, i)
         s = round(size_bytes / p, 2)
         return "%s %s" % (s, size_name[i])
-    
-    
+
     def btn_background(self, class_style, icon_name):
         tbtn_title_b = Adw.ButtonContent()
         tbtn_title_b.set_icon_name(icon_name)
         tbtn_title_b.add_css_class(class_style)
         return tbtn_title_b
-    
+
     def dockbar_remove(self, cmd):
         with open(self.dockbar_config, "r") as f:
             config = toml.load(f)
-    
-
