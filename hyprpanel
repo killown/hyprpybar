@@ -161,7 +161,7 @@ class Panel(Adw.Application):
         self.setup_panel_buttons()
         self.setup_panel_position()
         self.setup_gestures()
-        self.freedesktop_notifications()
+        # self.freedesktop_notifications()
         self.create_popover_menu_clipboard(app)
         self.create_menu_popover_launcher(app)
         self.create_menu_popover_bookmarks(app)
@@ -170,12 +170,12 @@ class Panel(Adw.Application):
     def do_activate(self):
         self.show_panels()
 
-    def freedesktop_notifications(self):
-        DBusGMainLoop(set_as_default=True)
-        bus = dbus.SessionBus()
-        string = "interface='org.freedesktop.Notifications',member='Notify', eavesdrop='true'"
-        # bus.add_match_string(string)
-        # bus.add_message_filter(self.notification_msg)
+    # def freedesktop_notifications(self):
+    # DBusGMainLoop(set_as_default=True)
+    # bus = dbus.SessionBus()
+    # string = "interface='org.freedesktop.Notifications',member='Notify', eavesdrop='true'"
+    # bus.add_match_string(string)
+    # bus.add_message_filter(self.notification_msg)
 
     def monitor_width_height(self):
         # get monitor info and set the width, height for the panel
@@ -1504,7 +1504,6 @@ class Panel(Adw.Application):
             return True
         else:
             self.window_title_from_topbar = title
-
 
         # Apply custom icon if available
         wclass = self.apply_custom_icon(wclass)
