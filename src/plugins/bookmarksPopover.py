@@ -104,8 +104,13 @@ class PopoverBookmarks(Adw.Application):
             row_hbox.MYTEXT = url, container
 
             # Configure bookmark icon
-            icon = url + ".png"
-            icon = icon.replace("/", "--")
+            icon = url
+            if "/" in icon:
+                icon = [i for i in icon.split("/") if "." in i][0]
+                icon = "{0}.png".format(icon)
+                print(icon)
+            else:
+                icon = url + ".png"
             bookmark_image = os.path.join(self.config_path, "bookmarks/images/", icon)
 
             # Add the bookmark to the listbox

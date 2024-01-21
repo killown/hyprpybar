@@ -239,7 +239,7 @@ class Dockbar(Adw.Application):
             initial_title = active_window.initial_title
 
             # Check if the active window has the title "zsh"
-            if initial_title == "zsh":
+            if initial_title in ["zsh", "fish", "bash"]:
                 address = active_window.address
                 title = active_window.title
                 wm_class = active_window.wm_class
@@ -305,7 +305,7 @@ class Dockbar(Adw.Application):
         cmd = initial_title
 
         # Adjusting for special cases like zsh or bash
-        if initial_title in ["zsh", "bash"]:
+        if initial_title in ["zsh", "bash", "fish"]:
             title = w.title.split(" ")[0]
             cmd = f"kitty --hold {title}"
             icon = wclass

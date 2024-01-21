@@ -965,6 +965,8 @@ class Panel(Adw.Application):
             wm_class = title.split()[0]
         if initial_title == "zsh":
             wm_class = title.split()[0]
+        if initial_title == "fish":
+            wm_class = title.split()[0]
 
         # Load existing window notes from the configuration file
         with open(self.window_notes_config, "r") as config_file:
@@ -1237,8 +1239,9 @@ class Panel(Adw.Application):
         return title
 
     def icon_exist(self, argument):
-        exist = [i for i in self.icon_theme_list if argument in i.lower()]
-        return exist
+        if argument is not None:
+            exist = [i for i in self.icon_theme_list if argument in i.lower()]
+            return exist
 
     def update_title_and_icons(self, title, wm_class, initial_title):
         """Update title and icons."""
@@ -1262,12 +1265,16 @@ class Panel(Adw.Application):
 
         self.window_title.set_label(title)
 
+        label = None
         if initial_title == "zsh":
             label = title.split(" ")[0]
-            icon_exist = self.icon_exist(label)
-            if icon_exist:
-                self.window_title.set_icon_name(label)
-                self.tbclass.set_icon_name("{0}".format(label))
+        if initial_title == "fish":
+            label = title.split(" ")[0]
+
+        icon_exist = self.icon_exist(label)
+        if icon_exist:
+            self.window_title.set_icon_name(label)
+            self.tbclass.set_icon_name("{0}".format(label))
 
     def update_widget_labels(
         self, workspace_id, pid, wclass, cpu_usage, mem_usage, exe, window_changed

@@ -230,6 +230,8 @@ class Utils(Adw.Application):
         # Special case for "zsh" initial_title
         if initial_title == "zsh":
             label = title.split(" ")[0]
+        if initial_title == "fish":
+            label = title.split(" ")[0]
             icon_exist = [i for i in self.icon_theme_list if label in i]
             try:
                 icon = icon_exist[-1]
@@ -279,6 +281,8 @@ class Utils(Adw.Application):
         use_this_title = initial_title
         if "zsh" == initial_title.lower():
             use_this_title = title
+        if "fish" == initial_title.lower():
+            use_this_title =  title
 
         desktop_local_file = self.search_local_desktop(initial_title)
         if desktop_local_file:
