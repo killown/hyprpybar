@@ -1,8 +1,8 @@
-# Hyprpanel
+Hyprpanel
 
 ##### _Gtk4/Adwaita panel made for hyprland_
 
-The core of this panel lies in leveraging a shell overview, reminiscent of GNOME, to elegantly showcase all windows, dock bars, and more. Its primary goal is to optimize CPU usage exclusively during non-overview mode. The panel actively monitors command output, title changes, and widgets only when the overview is active in the background. This means that no unnecessary checks will occur, ensuring that CPU usage remains predominantly below 1%. As a result, this panel is specifically designed to complement the functionalities of the https://github.com/killown/hyprshell plugin.
+The core of this panel lies in leveraging a shell overview, reminiscent of GNOME, to elegantly showcase all windows, dock bars, and more. Its primary goal is to optimize CPU usage exclusively during non-overview mode. The panel actively monitors command output, title changes, and widgets only when the overview is active in the background. This means that no unnecessary checks will occur, ensuring that CPU usage remains predominantly below 1%. As a result, this panel is specifically designed to complement the functionalities of the [hyprshell](https://github.com/killown/hyprshell) plugin.
 
 ### How to Install
 
@@ -12,9 +12,10 @@ cd hyprpybar
 sh install
 mkdir ~/.config/hyprpanel; cp config/* ~/.config/hyprpanel
 ```
- [<img src="https://github.com/killown/hyprpybar/assets/24453/04e99ccc-7351-4184-9407-184e1e85b474" width="100%">](https://www.youtube.com/watch?v=UYnr8RLHP7c "Youtube Video")
 
-The info panel is intended to be used with https://github.com/killown/hyprshell plugin
+[](https://www.youtube.com/watch?v=UYnr8RLHP7c "Youtube Video")
+
+The info panel is intended to be used with hyprshell plugin
 
 ### Current features
 
@@ -47,7 +48,6 @@ refresh = 1000 #in ms
 position = "center" #left center right
 cmd = "command" #command or script
 css_class = "css_class" #to customize the widget look
-
 ```
 
 #### Create new menus in the top bar using toml
@@ -61,7 +61,6 @@ name = "Menu Label"
 cmd = "command"
 name = "Menu Label"
 submenu = "submenu_name"
-
 ```
 
 ## License
