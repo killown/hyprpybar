@@ -167,7 +167,6 @@ class Utils(Adw.Application):
         cmd = None
 
         # Check if a window with the given address is already open
-        processes = psutil.process_iter()
         instance = Hyprland()
         pid = [i.pid for i in instance.get_windows() if i.address == address]
 
@@ -189,12 +188,9 @@ class Utils(Adw.Application):
         # Load dockbar configuration from a file
         with open(self.dockbar_config, "r") as f:
             config = toml.load(f)
-
         try:
             # Try to get icon information from the configuration file
             icon = config[wmclass.lower()]["icon"]
-            desk = None
-            desk_local = None
         except KeyError:
             pass
 
@@ -266,9 +262,9 @@ class Utils(Adw.Application):
         # panel.toml has filters for missing icons
         try:
             icon = self.panel_cfg["change_icon_title"][icon]
-        except:
-            pass
-        if type(icon) is str:
+        except Exception as e:
+            print(e)
+        if isinstance(icon, str):
             image = Gtk.Image.new_from_icon_name(icon)
         else:
             image = Gtk.Image.new_from_gicon(icon)
@@ -282,7 +278,7 @@ class Utils(Adw.Application):
         if "zsh" == initial_title.lower():
             use_this_title = title
         if "fish" == initial_title.lower():
-            use_this_title =  title
+            use_this_title = title
 
         desktop_local_file = self.search_local_desktop(initial_title)
         if desktop_local_file:
@@ -336,7 +332,3 @@ class Utils(Adw.Application):
         tbtn_title_b.set_icon_name(icon_name)
         tbtn_title_b.add_css_class(class_style)
         return tbtn_title_b
-
-    def dockbar_remove(self, cmd):
-        with open(self.dockbar_config, "r") as f:
-            config = toml.load(f)

@@ -679,7 +679,7 @@ class Panel(Adw.Application):
 
         return True
 
-    def on_button_press_event(self, widget, event):
+    def on_button_press_event(self, _, event):
         """
         Handle the button press event.
 
@@ -696,7 +696,7 @@ class Panel(Adw.Application):
         if event.type == Gdk.EventType.BUTTON_PRESS and event.button == 3:
             return True
 
-    def right_side_middle_click(self, gesture, data, x, y):
+    def right_side_middle_click(self, *_):
         """
         Handle the middle click gesture on the right side.
 
@@ -714,7 +714,7 @@ class Panel(Adw.Application):
         """
         Popen("kitty".split())
 
-    def scroll_event(self, controller, _dx, dy):
+    def scroll_event(self, _, _dx, dy):
         """
         Handle the scroll event.
 
@@ -730,6 +730,7 @@ class Panel(Adw.Application):
             None
         """
         # Check the direction of the scroll and adjust the volume using the "pactl" command
+        print(_dx, dy)
         if dy > 0:
             self.utils.run_app("pactl -- set-sink-volume 0 -8%")
         else:

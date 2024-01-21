@@ -263,7 +263,7 @@ class Dockbar(Adw.Application):
                         )
 
         except Exception as e:
-            pass
+            print(e)
 
         # Return True to indicate successful execution of the check_pids function
         return True
