@@ -2,7 +2,7 @@ Hyprpanel
 
 ##### _Gtk4/Adwaita panel made for hyprland_
 
-The core of this panel lies in leveraging a shell overview, reminiscent of GNOME, to elegantly showcase all windows, dock bars, and more. Its primary goal is to optimize CPU usage exclusively during non-overview mode. The panel actively monitors command output, title changes, and widgets only when the overview is active in the background. This means that no unnecessary checks will occur, ensuring that CPU usage remains predominantly below 1%. As a result, this panel is specifically designed to complement the functionalities of the [hyprshell](https://github.com/killown/hyprshell) plugin.
+The core of this panel lies in leveraging a shell overview, reminiscent of GNOME, to elegantly showcase all windows, dock bars, and more. Its primary goal is to optimize CPU usage exclusively during non-overview mode. The panel actively monitors command output, title changes, and widgets only when the overview is active in the background. This means that no unnecessary checks will occur, ensuring that CPU usage remains as low as possible. As a result, this panel is specifically designed to complement the functionalities of the [hyprshell](https://github.com/killown/hyprshell) plugin.
 
 ### How to Install
 
