@@ -1,4 +1,7 @@
-Hyprpanel
+## Hyprpanel
+
+![screenshot](https://github.com/killown/hyprpybar/assets/24453/5d6c2217-e812-47e4-baee-dea3cf3be31e)
+
 
 ##### _Gtk4/Adwaita panel made for hyprland_
 
