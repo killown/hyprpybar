@@ -73,7 +73,12 @@ class MenuClipboard(Adw.Application):
         self.scrolled_window.set_child(self.listbox)
         self.popover_clipboard.set_child(self.main_box)
         # self.popover.connect("closed", self.popover_is_closed)
-        clipboard_history = check_output("cliphist list".split()).decode().strip()
+        clipboard_history = (
+            check_output("cliphist list".split())
+            .decode("latin-1")
+            .encode("utf-8")
+            .decode()
+        )
         clipboard_history = clipboard_history.split("\n")
         for i in clipboard_history:
             row_hbox = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 0)

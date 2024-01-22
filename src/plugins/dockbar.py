@@ -212,6 +212,35 @@ class Dockbar(Adw.Application):
         # Return True to indicate successful execution of the update_taskbar function
         return True
 
+    def update_active_window_shell(self):
+        instance = Hyprland()
+        active_window = instance.get_active_window()
+        initial_title = active_window.initial_title
+
+        # Check if the active window has the title "zsh"
+        if initial_title in ["zsh", "fish", "bash"]:
+            address = active_window.address
+            title = active_window.title
+            wm_class = active_window.wm_class
+            pid = active_window.pid
+
+            # Quick fix for nautilus initial class
+            if "org.gnome.nautilus" in wm_class.lower():
+                initial_title = "nautilus"
+
+            # Check if the address is in buttons_address
+            if address in self.buttons_address:
+                addr = self.buttons_address[address]
+                btn = addr[0]
+                btn_title = addr[1]
+
+                # Check if the title has changed
+                if title != btn_title:
+                    self.taskbar.remove(btn)
+                    self.update_taskbar(
+                        pid, wm_class, address, initial_title, title, "h", "taskbar"
+                    )
+
     def check_pids(self):
         # Create an instance of Hyprland
         instance = Hyprland()
@@ -222,6 +251,7 @@ class Dockbar(Adw.Application):
 
         # do not check anything if no window closed or created
         if not self.is_any_window_created_or_closed():
+            self.update_active_window_shell()
             return True
 
         try:
@@ -235,33 +265,7 @@ class Dockbar(Adw.Application):
                 self.all_pids = all_pids
                 self.Taskbar("h", "taskbar")
                 return True
-
-            initial_title = active_window.initial_title
-
-            # Check if the active window has the title "zsh"
-            if initial_title in ["zsh", "fish", "bash"]:
-                address = active_window.address
-                title = active_window.title
-                wm_class = active_window.wm_class
-                pid = active_window.pid
-
-                # Quick fix for nautilus initial class
-                if "org.gnome.nautilus" in wm_class.lower():
-                    initial_title = "nautilus"
-
-                # Check if the address is in buttons_address
-                if address in self.buttons_address:
-                    addr = self.buttons_address[address]
-                    btn = addr[0]
-                    btn_title = addr[1]
-
-                    # Check if the title has changed
-                    if title != btn_title:
-                        self.taskbar.remove(btn)
-                        self.update_taskbar(
-                            pid, wm_class, address, initial_title, title, "h", "taskbar"
-                        )
-
+            self.update_active_window_shell()
         except Exception as e:
             print(e)
 
