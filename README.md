@@ -2,6 +2,9 @@
 
 ![screenshot](https://github.com/killown/hyprpybar/assets/24453/5d6c2217-e812-47e4-baee-dea3cf3be31e)
 
+![screenshot](https://github.com/killown/hyprpybar/assets/24453/b7d6ae14-bdc8-4901-8b12-4686fdfa293c)
+
+
 
 ##### _Gtk4/Adwaita panel made for hyprland_
 
