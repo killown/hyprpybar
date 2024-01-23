@@ -89,7 +89,6 @@ class MenuClipboard(Adw.Application):
             row_hbox = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 0)
             image_button = Gtk.Button()
             image_button.set_icon_name("edit-delete-remove")
-            self.find_text_using_button[image_button] = row_hbox
             image_button.connect("clicked", lambda i: self.cliphist_delete_selected(i))
             row_hbox.append(image_button)
             row_hbox.MYTEXT = i
@@ -100,6 +99,7 @@ class MenuClipboard(Adw.Application):
             line.props.hexpand = True
             line.set_halign(Gtk.Align.START)
             row_hbox.append(line)
+            self.find_text_using_button[image_button] = line
 
         self.listbox.set_filter_func(self.on_filter_invalidate)
         # Create a menu button
@@ -118,9 +118,9 @@ class MenuClipboard(Adw.Application):
 
     def cliphist_delete_selected(self, button):
         button = [i for i in self.find_text_using_button if button == i][0]
-        row_box = self.find_text_using_button[button]
-        text = row_box.MYTEXT
-        # self.listbox.(row_box)
+        label = self.find_text_using_button[button]
+        text = label.get_text()
+        label.set_label("")
         echo = Popen(("echo", text), stdout=subprocess.PIPE)
         echo.wait()
         check_output(("cliphist", "delete"), stdin=echo.stdout).decode()
