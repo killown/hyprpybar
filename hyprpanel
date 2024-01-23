@@ -88,6 +88,10 @@ class Panel(Adw.Application):
         self.hyprpanel_started_now = True
         self.window_title_from_topbar = None
 
+        with open(self.topbar_config) as topbar_config:
+            config = toml.load(topbar_config)
+        self.window_title_topbar_lenght = config["window_title_lenght"]["size"]
+
     def _initialize_utilities(self):
         """Initialize utility functions and properties."""
         self.utils = Utils(application_id="com.github.utils")
@@ -1116,7 +1120,13 @@ class Panel(Adw.Application):
 
     def update_title_topbar(self):
         # Extract window information
-        active_window = self.get_hyprland_active_window()
+        active_window = None
+        try:
+            active_window = self.get_hyprland_active_window()
+        except Exception as e:
+            print(e)
+            return True
+
         title, _, _, wclass, initial_title = self.extract_widget_info(active_window)
         if self.window_title_from_topbar == title:
             return True
@@ -1126,8 +1136,8 @@ class Panel(Adw.Application):
         # Modify title based on certain patterns
         title = self.modify_title(title)
 
-        if len(title) > 100:
-            title = title[:80]
+        if len(title) > self.window_title_topbar_lenght:
+            title = title[: self.window_title_topbar_lenght]
 
         # Apply custom icon if available
         custom_icon = self.apply_custom_icon(wclass)

@@ -5,6 +5,7 @@ from gi.repository import Gio, Gtk, Adw
 from gi.repository import Gtk4LayerShell as LayerShell
 from subprocess import Popen, check_output
 import subprocess
+from ..core.utils import Utils
 
 
 class MenuClipboard(Adw.Application):
@@ -14,6 +15,10 @@ class MenuClipboard(Adw.Application):
         self.app = None
         self.top_panel = None
         self._setup_config_paths()
+        self.utils = Utils(application_id="com.github.utils")
+        self.find_text_using_button = {}
+        self.row_content = None
+        self.listbox = None
 
     def _setup_config_paths(self):
         """Set up configuration paths based on the user's home directory."""
@@ -49,7 +54,7 @@ class MenuClipboard(Adw.Application):
         show_searchbar_action.connect("activate", self.on_show_searchbar_action_actived)
         self.app.add_action(show_searchbar_action)
         self.scrolled_window = Gtk.ScrolledWindow()
-        self.scrolled_window.set_min_content_width(600)
+        self.scrolled_window.set_min_content_width(800)
         self.scrolled_window.set_min_content_height(600)
         self.main_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 0)
         self.searchbar = Gtk.SearchEntry.new()
@@ -82,25 +87,27 @@ class MenuClipboard(Adw.Application):
         clipboard_history = clipboard_history.split("\n")
         for i in clipboard_history:
             row_hbox = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 0)
+            image_button = Gtk.Button()
+            image_button.set_icon_name("edit-delete-remove")
+            self.find_text_using_button[image_button] = row_hbox
+            image_button.connect("clicked", lambda i: self.cliphist_delete_selected(i))
+            row_hbox.append(image_button)
             row_hbox.MYTEXT = i
             self.listbox.append(row_hbox)
             line = Gtk.Label.new()
             line.set_label(i)
-            line.props.margin_start = 5
+            line.props.margin_end = 5
             line.props.hexpand = True
             line.set_halign(Gtk.Align.START)
             row_hbox.append(line)
-            image = Gtk.Image.new_from_icon_name("gtk-copy")
-            image.props.margin_end = 5
-            image.set_halign(Gtk.Align.END)
-            row_hbox.append(image)
+
         self.listbox.set_filter_func(self.on_filter_invalidate)
         # Create a menu button
         self.popover_clipboard.set_parent(self.menubutton_clipboard)
         self.popover_clipboard.popup()
         return self.popover_clipboard
 
-    def wl_copy_clipboard(self, x):
+    def wl_copy_clipboard(self, x, *_):
         selected_text = x.get_child().MYTEXT
         echo = Popen(("echo", selected_text), stdout=subprocess.PIPE)
         echo.wait()
@@ -108,6 +115,15 @@ class MenuClipboard(Adw.Application):
         # not gonna use buggy pyperclip
         Popen(["wl-copy", selected_text])
         self.popover_clipboard.popdown()
+
+    def cliphist_delete_selected(self, button):
+        button = [i for i in self.find_text_using_button if button == i][0]
+        row_box = self.find_text_using_button[button]
+        text = row_box.MYTEXT
+        # self.listbox.(row_box)
+        echo = Popen(("echo", text), stdout=subprocess.PIPE)
+        echo.wait()
+        check_output(("cliphist", "delete"), stdin=echo.stdout).decode()
 
     def run_app_from_launcher(self, x):
         selected_text, filename = x.get_child().MYTEXT
@@ -159,7 +175,7 @@ class MenuClipboard(Adw.Application):
             self.searchbar.get_text().strip()
         )  # get text from searchentry and remove space from start and end
         if not isinstance(row, str):
-            row = row.get_child().MYTEXT[0]
+            row = row.get_child().MYTEXT
         row = row.lower().strip()
         if (
             text_to_search.lower() in row
