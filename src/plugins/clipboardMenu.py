@@ -65,6 +65,10 @@ class MenuClipboard(Adw.Application):
         self.searchbar.props.vexpand = True
 
         self.main_box.append(self.searchbar)
+        self.button_clear = Gtk.Button()
+        self.button_clear.set_label("Clear")
+        self.button_clear.connect("clicked", self.print_listbox)
+        self.main_box.append(self.button_clear)
         self.listbox = Gtk.ListBox.new()
         self.listbox.connect(
             "row-selected", lambda widget, row: self.wl_copy_clipboard(row)
@@ -106,6 +110,22 @@ class MenuClipboard(Adw.Application):
         self.popover_clipboard.set_parent(self.menubutton_clipboard)
         self.popover_clipboard.popup()
         return self.popover_clipboard
+
+    def print_listbox(self, *_):
+        box = self.listbox
+        counter = 0
+        while True:
+            b = box.get_row_at_index(counter)
+            if not b:
+                break
+            text = b.get_child().MYTEXT
+            counter += 1
+            search = self.searchbar.get_text().strip()
+            if search.lower() in text.lower() and isinstance(text, str):
+                print(text)
+                echo = Popen(("echo", text), stdout=subprocess.PIPE)
+                echo.wait()
+                check_output(("cliphist", "delete"), stdin=echo.stdout).decode()
 
     def wl_copy_clipboard(self, x, *_):
         selected_text = x.get_child().MYTEXT
