@@ -21,7 +21,7 @@ import asyncio
 from gi.repository import Gtk, Adw, GLib, Gio, Gdk
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
-from datetime import datetime
+import datetime
 import json
 import sys
 import importlib
@@ -90,7 +90,7 @@ class Panel(Adw.Application):
 
         with open(self.topbar_config) as topbar_config:
             config = toml.load(topbar_config)
-        self.window_title_topbar_lenght = config["window_title_lenght"]["size"]
+        self.window_title_topbar_length = config["window_title_lenght"]["size"]
 
     def _initialize_utilities(self):
         """Initialize utility functions and properties."""
@@ -143,6 +143,8 @@ class Panel(Adw.Application):
         )
         # Dockbar and icon themes
         self.dock = Dockbar(application_id="com.github.dockbar")
+
+        self.clock_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
 
     def _setup_config_paths(self):
         """Set up configuration paths based on the user's home directory."""
@@ -280,7 +282,6 @@ class Panel(Adw.Application):
         self.top_panel_background.set_content(self.tbbox)
 
     def update_widget_with_timeout(self):
-        GLib.timeout_add(1000, self.update_clock)
         GLib.timeout_add(200, self.update_widgets)
         GLib.timeout_add(200, self.update_title_topbar)
         GLib.timeout_add(10000, self.mullvad_status)
@@ -386,18 +387,29 @@ class Panel(Adw.Application):
         self.clock_box.set_baseline_position(Gtk.BaselinePosition.CENTER)
         self.clock_box.add_css_class("Clock")
 
-        # Creating clock button with current date and time
-
-        # self.clock_widget = self.utils.CreateButton("gnome-panel-clock-symbolic", "python {0}/calendar.py".format(self.scripts) , "ClockButton")
-        self.clock_widget = Gtk.Label()
-        # self.clock_widget = self.utils.CreateButton("gnome-panel-clock-symbolic", lambda: clock_dashboard() , "ClockButton")
-        self.clock_widget.set_label(datetime.now().strftime("%d %A %H:%M"))
-        self.clock_widget.set_halign(Gtk.Align.CENTER)
-        self.clock_widget.set_hexpand(True)
-        self.clock_box.append(self.clock_widget)
+        # Creating clock label with current date and time
+        self.clock_label = Gtk.Label()
+        self.clock_label.set_label(datetime.datetime.now().strftime("%d %A %H:%M"))
+        self.clock_label.set_halign(Gtk.Align.CENTER)
+        self.clock_label.set_hexpand(True)
+        self.clock_box.append(self.clock_label)
 
         # Adding the clock widget to the center panel
         self.top_panel_box_center.append(self.clock_box)
+
+        # Schedule the initial update and then update every minute
+        GLib.timeout_add_seconds(60 - datetime.datetime.now().second, self.update_clock)
+
+    def update_clock(self):
+        # Update the label with the current date and time
+        self.clock_label.set_label(datetime.datetime.now().strftime("%d %A %H:%M"))
+
+        # Schedule the next update at the beginning of the next minute
+        seconds_until_next_minute = 60 - datetime.datetime.now().second
+        GLib.timeout_add_seconds(seconds_until_next_minute, self.update_clock)
+
+        # Returning True means the timeout will continue to be scheduled
+        return False  # We don't want to repeat the timeout immediately
 
     def setup_panel_position(self):
         """
@@ -893,10 +905,6 @@ class Panel(Adw.Application):
     def menu_run_action(self, action, param):
         self.utils.run_app(param.get_string())
 
-    def update_clock(self):
-        self.clock_widget.set_label(datetime.now().strftime("%d %A %H:%M"))
-        return True
-
     def load_topbar_config(self):
         with open(self.topbar_config, "r") as f:
             return toml.load(f)
@@ -1120,7 +1128,6 @@ class Panel(Adw.Application):
 
     def update_title_topbar(self):
         # Extract window information
-        active_window = None
         try:
             active_window = self.get_hyprland_active_window()
         except Exception as e:
@@ -1128,23 +1135,23 @@ class Panel(Adw.Application):
             return True
 
         title, _, _, wclass, initial_title = self.extract_widget_info(active_window)
-        if self.window_title_from_topbar == title:
-            return True
-        else:
+
+        if self.window_title_from_topbar != title:
             self.window_title_from_topbar = title
 
-        # Modify title based on certain patterns
-        title = self.modify_title(title)
+            # Modify title based on certain patterns
+            title = self.modify_title(title)
 
-        if len(title) > self.window_title_topbar_lenght:
-            title = title[: self.window_title_topbar_lenght]
+            # Limit the title length
+            title = title[: self.window_title_topbar_length]
 
-        # Apply custom icon if available
-        custom_icon = self.apply_custom_icon(wclass)
-        if custom_icon:
-            wclass = custom_icon
-        # Update title and icon
-        self.update_title_and_icons(title, wclass, initial_title)
+            # Apply custom icon if available
+            custom_icon = self.apply_custom_icon(wclass)
+            if custom_icon:
+                wclass = custom_icon
+
+            # Update title and icon
+            self.update_title_and_icons(title, wclass, initial_title)
 
         return True
 
@@ -1243,10 +1250,16 @@ class Panel(Adw.Application):
 
     def modify_title(self, title):
         """Modify title based on certain patterns."""
-        if "www." in title:
-            title = title.split("www.")[1]
+        if "." in title:
+            parts = title.split(" ", 1)
+            if parts[0].startswith("www."):
+                title = parts[0][4:]  # Assuming "www." always has a length of 4
+            else:
+                title = parts[0]
+
         if " — " in title:
-            title = title.split(" — ")[0]
+            title = title.split(" — ", 1)[0]
+
         return title
 
     def icon_exist(self, argument):
@@ -1256,49 +1269,57 @@ class Panel(Adw.Application):
 
     def update_title_and_icons(self, title, wm_class, initial_title):
         """Update title and icons."""
+
+        # Check if an icon exists for the wm_class
         icon_exist = self.icon_exist(wm_class)
         self.tbclass.set_icon_name(wm_class)
+
+        # Set window icon based on icon_exist
         if icon_exist:
             self.window_title.set_icon_name(icon_exist[0])
-        if not icon_exist:
+        elif not icon_exist:
+            # If no icon for wm_class, check if there's an icon for the initial_title
             icon_exist = self.icon_exist(initial_title.lower())
             if icon_exist:
                 self.window_title.set_icon_name(icon_exist[0])
 
-        else:
-            # Search for desktop files based on wmclass and initial_title
+        # If still no icon, search for desktop files based on wmclass and initial_title
+        if not icon_exist:
             desk_local = self.utils.search_local_desktop(initial_title.lower())
+            if desk_local and "-Default" in desk_local:
+                icon = desk_local.split(".desktop")[0]
+                self.window_title.set_icon_name(icon)
 
-            if desk_local:
-                if "-Default" in desk_local:
-                    icon = desk_local.split(".desktop")[0]
-                    self.window_title.set_icon_name(icon)
-
+        # Set window label
         self.window_title.set_label(title)
 
-        label = None
-        if initial_title == "zsh":
-            label = title.split(" ")[0]
-        if initial_title == "fish":
-            label = title.split(" ")[0]
+        # Set additional label-based icons for specific initial_titles (zsh, fish)
+        label = title.split(" ")[0] if initial_title in ["zsh", "fish"] else None
 
-        icon_exist = self.icon_exist(label)
-        if icon_exist:
-            self.window_title.set_icon_name(label)
-            self.tbclass.set_icon_name("{0}".format(label))
+        if label:
+            icon_exist = self.icon_exist(label)
+            if icon_exist:
+                self.window_title.set_icon_name(label)
+                self.tbclass.set_icon_name(label)
 
     def update_widget_labels(
         self, workspace_id, pid, wclass, cpu_usage, mem_usage, exe, window_changed
     ):
         """Update widget labels."""
+
+        # Only update labels related to window details if the window has changed
         if window_changed:
             self.tbpid.set_label("PID: {0}".format(pid))
             self.tbclass.set_label("{0}".format(wclass))
             self.tbexe.set_label("Exe: {0}".format(exe))
             self.tbdiskusage.set_label("Disk: {0}MB".format(self.disk_usage_by_pid()))
+
+        # Update labels for general information
         self.tbworkspace.set_label("W: {0}".format(workspace_id))
         self.tbcpusage.set_label("CPU: {0}%".format(cpu_usage))
         self.tbmemusage.set_label("MEM: {0}".format(mem_usage))
+
+        # Update volume information
         self.volume_watch()
 
 
