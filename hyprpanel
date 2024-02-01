@@ -46,6 +46,7 @@ from collections import ChainMap
 from src.plugins.dockbar import Dockbar
 from src.plugins.wallpaperPopover import PopoverWallpaper
 from src.plugins.bookmarksPopover import PopoverBookmarks
+from src.plugins.folders import PopoverFolders
 from src.plugins.clipboardMenu import MenuClipboard
 from src.plugins.launcherMenu import MenuLauncher
 from src.core.utils import Utils
@@ -80,6 +81,7 @@ class Panel(Adw.Application):
         self.active_window_changed = None
         self.notifications = []
         self.popover_bookmarks = None
+        self.popover_folders = None
         self.popover_launcher = None
         self.popover_clipboard = None
         self.popover_wallpaper = None
@@ -183,6 +185,8 @@ class Panel(Adw.Application):
         self.PopoverWallpaper.create_menu_popover_wallpaper(self, app)
         self.PopoverBookmarks = PopoverBookmarks()
         self.PopoverBookmarks.create_menu_popover_bookmarks(self, app)
+        self.PopoverFolders = PopoverFolders()
+        self.PopoverFolders.create_menu_popover_folders(self, app)
         self.MenuClipboard = MenuClipboard()
         self.MenuClipboard.create_popover_menu_clipboard(self, app)
         self.MenuLauncher = MenuLauncher()
@@ -284,7 +288,7 @@ class Panel(Adw.Application):
     def update_widget_with_timeout(self):
         GLib.timeout_add(200, self.update_widgets)
         GLib.timeout_add(200, self.update_title_topbar)
-        GLib.timeout_add(10000, self.mullvad_status)
+        GLib.timeout_add(30000, self.mullvad_status)
         GLib.timeout_add(600000, self.clean_pid_store)
 
     def show_panels(self):
@@ -1277,7 +1281,7 @@ class Panel(Adw.Application):
         # Set window icon based on icon_exist
         if icon_exist:
             self.window_title.set_icon_name(icon_exist[0])
-        elif not icon_exist:
+        if not icon_exist:
             # If no icon for wm_class, check if there's an icon for the initial_title
             icon_exist = self.icon_exist(initial_title.lower())
             if icon_exist:

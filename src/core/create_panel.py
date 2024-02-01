@@ -1,4 +1,5 @@
 import gi
+
 gi.require_version("Adw", "1")
 gi.require_version("Gtk4LayerShell", "1.0")
 from gi.repository import Gtk4LayerShell as LayerShell
@@ -31,4 +32,5 @@ def CreatePanel(app, anchor, layer, exclusive, width, height, class_style):
         LayerShell.set_layer(window, LayerShell.Layer.TOP)
     if exclusive:
         LayerShell.auto_exclusive_zone_enable(window)
+
     return window

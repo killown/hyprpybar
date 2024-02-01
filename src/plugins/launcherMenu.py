@@ -5,6 +5,7 @@ from gi.repository import Gio, Gtk, Adw
 from gi.repository import Gtk4LayerShell as LayerShell
 from subprocess import Popen
 from ..core.utils import Utils
+import toml
 
 
 class MenuLauncher(Adw.Application):
@@ -41,7 +42,7 @@ class MenuLauncher(Adw.Application):
         self.menubutton_launcher = Gtk.Button()
         self.menubutton_launcher.connect("clicked", self.open_popover_launcher)
         self.menubutton_launcher.set_icon_name("archlinux-symbolic")
-        obj.top_panel_box_systray.append(self.menubutton_launcher)
+        obj.clock_box.append(self.menubutton_launcher)
 
     def create_popover_launcher(self, *_):
         # Create a popover
@@ -76,6 +77,37 @@ class MenuLauncher(Adw.Application):
         all_apps = Gio.AppInfo.get_all()
         # randomize apps displayed every .popup()
         random.shuffle(all_apps)
+        with open(self.dockbar_config, "r") as f:
+            dockbar_toml = toml.load(f)
+
+        dockbar_apps = [dockbar_toml[i] for i in dockbar_toml]
+        dockbar_names = [dockbar_toml[i]["name"] for i in dockbar_toml]
+        all_apps = [i for i in all_apps if i.get_display_name not in dockbar_names]
+        # #TODO: create a function to not repeate this loop
+        for n, i in enumerate(dockbar_apps):
+            name = dockbar_names[n]
+            filename = i["desktop_file"]
+            icon = i["icon"]
+            if icon is None:
+                continue
+            row_hbox = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 0)
+            row_hbox.MYTEXT = name, filename  # to filter later
+            self.listbox.append(row_hbox)
+            line = Gtk.Label.new()
+            line.add_css_class("label_from_popover_launcher")
+            line.set_label(name)
+            line.props.margin_start = 5
+            line.props.hexpand = True
+            line.set_halign(Gtk.Align.START)
+
+            image = Gtk.Image.new_from_icon_name(icon)
+            image.add_css_class("icon_from_popover_launcher")
+            image.set_icon_size(Gtk.IconSize.LARGE)
+            image.props.margin_end = 5
+            image.set_halign(Gtk.Align.END)
+            row_hbox.append(image)
+            row_hbox.append(line)
+
         for i in all_apps:
             name = i.get_display_name()
             filename = i.get_id()

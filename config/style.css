@@ -1,33 +1,87 @@
-.LeftBar {
+.WindowTitle {
   -gtk-icon-size: 24px;
-  background: #00000096;
-  background-color: #00000065;
+  border-style: solid;
+  border-width: 2px;
+  font-size: 14px;
+  background: #000000d8;
+  background-color: #000000d8;
+  padding: 2px 4px 2px 4px;
+  margin: 2px 4px 2px 4px;
+  border-width: 2px;
+  border-color: #f8f8f84a;
+  border-radius: 10px;
+}
+
+.LeftBar {
+  -gtk-icon-size: 36px;
+  background: #00000000;
+  background-color: #00000000;
+}
+
+.hvr-grow {
+  transform: translateZ(0);
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0);
+  transition-duration: 0.1s;
+  transition-property: transform;
+}
+
+.hvr-grow:hover,
+.hvr-grow:focus,
+.hvr-grow:active {
+  transform: scale(0.94);
+}
+
+.LeftBar-buttons {
+  border-radius: 10px;
+  font-size: 16px;
+  background: #000000d8;
+  background-color: #000000d8;
+  border-style: solid;
+  border-width: 2px;
+  padding: 4px 4px 4px 4px;
+  border-color: #b5b3b0;
+}
+
+.RightBar-buttons {
+  border-radius: 10px;
+  font-size: 16px;
+  border-style: solid;
+  border-width: 2px;
+  background: #000000d8;
+  background-color: #000000d8;
+  padding: 8px 8px 8px 8px;
+  border-color: #b5b3b0;
 }
 
 .RightBar {
-  -gtk-icon-size: 28px;
-  background: #00000096;
-  background-color: #00000065;
+  -gtk-icon-size: 22px;
+  background: #00000000;
+  background-color: #00000000;
 }
 
 .cf_box {
   -gtk-icon-size: 24px;
   border-style: solid;
   border-width: 2px;
-  background: #00000096;
-  background-color: #00000065;
+  background: #000000d8;
+  background-color: #000000d8;
   padding: 2px 4px 2px 4px;
-  border-color: #b5b3b0;
+  margin: 2px 4px 2px 4px;
+  border-width: 2px;
+  border-color: #f8f8f84a;
   border-radius: 10px;
 }
-.WindowTitle {
-  font-size: 13px;
-  background: #00000096;
-  background-color: #00000065;
+
+.top_panel_box_widgets_left {
+  -gtk-icon-size: 24px;
   border-style: solid;
   border-width: 2px;
+  background: #000000d8;
+  background-color: #000000d8;
   padding: 2px 4px 2px 4px;
-  border-color: #b5b3b0;
+  margin: 2px 4px 2px 4px;
+  border-width: 2px;
+  border-color: #f8f8f84a;
   border-radius: 10px;
 }
 
@@ -58,21 +112,50 @@
 .icon_from_popover_launcher {
   -gtk-icon-size: 42px;
 }
+.icon_from_folders {
+  -gtk-icon-size: 32px;
+}
+
+.box_from_clicable_image {
+  border-radius: 8px;
+  font-size: 15px;
+  background: #000000d8;
+  background-color: #000000d8;
+  border-style: solid;
+  border-width: 1px;
+  margin: 2px 2px 2px 2px;
+  padding: 2px 2px 2px 2px;
+  border-color: #b5b3b085;
+}
 
 .label_from_popover_launcher {
   font-size: 16px;
 }
 
+.label_from_folders {
+  font-size: 20px;
+}
+
+.label_from_bookmarks {
+  font-size: 16px;
+  font-weight: bold;
+}
+
 .Clock {
   font-size: 18px;
   font-weight: bold;
-  background: #00000096;
-  background-color: #00000065;
+  background: #000000d8;
+  background-color: #000000d8;
   border-style: solid;
-  border-width: 2px;
   padding: 0px 4px 0px 4px;
-  border-color: #b5b3b0;
-  border-radius: 10px;
+  margin: 2px 4px 2px 4px;
+  border-width: 2px;
+  border-color: #f8f8f84a;
+  border-radius: 8px;
+}
+
+.wallpaper {
+  -gtk-icon-size: 400px;
 }
 
 .tbcpusage {
@@ -97,10 +180,10 @@
 
 .TopBar {
   font-size: 11px;
-  color: #ffffff;
+  color: #e2e2e2;
   background-color: #00000000;
   background: #00000000;
-  border-radius: 2px;
+  border-radius: 1px;
 }
 
 .top_panel_box_left {
@@ -113,14 +196,15 @@
 
 .top_panel_box_systray {
   -gtk-icon-size: 20px;
-  background: #00000096;
-  background-color: #00000065;
-  border-radius: 80px;
+  background: #000000d8;
+  background-color: #000000d8;
+  border-radius: 10px;
   font-size: 16px;
   border-style: solid;
+  margin: 2px 4px 2px 4px;
   border-width: 2px;
+  border-color: #f8f8f84a;
   padding: 0px 4px 0px 4px;
-  border-color: #b5b3b0;
 }
 
 .top_panel_box_center {
@@ -128,7 +212,7 @@
 }
 
 .todo_label {
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .clicable_image_label {
@@ -136,41 +220,56 @@
 }
 
 .TopBarBackground {
-  -gtk-icon-size: 24px;
-  font-size: 13px;
+  -gtk-icon-size: 32px;
+  font-size: 15px;
   color: #d6d6d6;
-  background-color: #0000007a;
+  background-color: #00000075;
 }
 
 .BottomBar {
-  -gtk-icon-size: 42px;
-  color: #ffffff;
-  background-color: #4545453a;
-  background: #272727d2;
-  border-radius: 10px;
+  background-color: #00000000;
+  margin: 2px 4px 2px 4px;
 }
 
-.BottomBarButton:hover {
-  color: rgb(105, 105, 105);
-  background: rgba(192, 192, 192, 0.719);
-  margin-top: 4px;
+.taskbar {
+  padding: 4px 8px 4px 8px;
+}
+
+.box_from_clicable_image:hover {
+  color: rgb(4, 4, 4);
+  background: #b5b3b05a;
   text-shadow:
-    white 0.006em 0.006em 0.007em,
-    #9c9c9c 1px 1px 1px,
-    #9c9c9c 1px 2px 1px,
-    #9c9c9c 1px 3px 1px,
-    #9c9c9c 1px 4px 1px,
-    #9c9c9c 1px 5px 1px,
-    #9c9c9c 1px 6px 1px,
-    #9c9c9c 1px 7px 1px,
-    #9c9c9c 1px 8px 1px,
-    #9c9c9c 1px 9px 1px,
-    #9c9c9c 1px 10px 1px,
-    #9c9c9c 1px 11px 1px,
-    #9c9c9c 1px 12px 1px,
+    rgb(9, 5, 5) 0.006em 0.006em 0.007em,
+    #141414 1px 1px 1px,
+    #141414 1px 2px 1px,
+    #141414 1px 3px 1px,
     rgba(16, 16, 16, 0.4) 1px 38px 26px,
     rgba(16, 16, 16, 0.2) 1px 42px 30px,
     rgba(16, 16, 16, 0.2) 1px 46px 65px,
     rgba(16, 16, 16, 0.4) 1px 50px 95px,
-    white -0.15em -0.1em 100px;
+    rgb(35, 35, 35) -0.15em -0.1em 100px;
+}
+
+.hvr-grow:hover {
+  color: rgb(4, 4, 4);
+  background: #b5b3b05a;
+  text-shadow:
+    rgb(9, 5, 5) 0.006em 0.006em 0.007em,
+    #141414 1px 1px 1px,
+    #141414 1px 2px 1px,
+    #141414 1px 3px 1px,
+    #141414 1px 4px 1px,
+    #141414 1px 5px 1px,
+    #141414 1px 6px 1px,
+    #141414 1px 7px 1px,
+    #141414 1px 8px 1px,
+    #141414 1px 9px 1px,
+    #141414 1px 10px 1px,
+    #141414 1px 11px 1px,
+    #141414 1px 12px 1px,
+    rgba(16, 16, 16, 0.4) 1px 38px 26px,
+    rgba(16, 16, 16, 0.2) 1px 42px 30px,
+    rgba(16, 16, 16, 0.2) 1px 46px 65px,
+    rgba(16, 16, 16, 0.4) 1px 50px 95px,
+    rgb(35, 35, 35) -0.15em -0.1em 100px;
 }

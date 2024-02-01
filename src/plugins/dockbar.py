@@ -322,7 +322,11 @@ class Dockbar(Adw.Application):
 
         try:
             for deskfile in os.listdir(self.webapps_applications):
-                if deskfile.startswith("chrome") or deskfile.startswith("msedge"):
+                if (
+                    deskfile.startswith("chrome")
+                    or deskfile.startswith("msedge")
+                    or deskfile.startswith("FFPWA-")
+                ):
                     pass
                 else:
                     continue

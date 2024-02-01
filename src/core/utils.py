@@ -124,7 +124,12 @@ class Utils(Adw.Application):
 
     def search_local_desktop(self, initial_title):
         for deskfile in os.listdir(self.webapps_applications):
-            if deskfile.startswith("chrome") or deskfile.startswith("msedge"):
+            if (
+                deskfile.startswith("chrome")
+                or deskfile.startswith("msedge")
+                or deskfile.startswith("FFPWA-")
+            ):
+                print(deskfile)
                 pass
             else:
                 continue
