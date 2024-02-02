@@ -41,7 +41,7 @@ class MenuLauncher(Adw.Application):
         self.app = app
         self.menubutton_launcher = Gtk.Button()
         self.menubutton_launcher.connect("clicked", self.open_popover_launcher)
-        self.menubutton_launcher.set_icon_name("archlinux-symbolic")
+        self.menubutton_launcher.set_icon_name("archlinux-logo")
         obj.clock_box.append(self.menubutton_launcher)
 
     def create_popover_launcher(self, *_):

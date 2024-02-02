@@ -271,7 +271,7 @@ class Panel(Adw.Application):
         # notes label
         self.todo_button = Adw.ButtonContent()
         self.todo_button.add_css_class("todo_label")
-        self.todo_button.set_icon_name("todoist-symbolic")
+        self.todo_button.set_icon_name("notes-app-symbolic")
         todo = os.path.join(self.home, "Documentos", "todo.txt")
 
         try:
@@ -286,10 +286,14 @@ class Panel(Adw.Application):
         self.tbworkspace = self.utils.btn_background(
             "tbworkspace", "gnome-panel-workspace-switcher"
         )
-        self.tbpid = self.utils.btn_background("tbpid", "view-process-system")
+        self.tbpid = self.utils.btn_background("tbpid", "view-process-tree")
         self.tbclass = self.utils.btn_background("tbclass", "cs-windows-symbolic")
-        self.tbcpusage = self.utils.btn_background("tbcpusage", "cpu")
-        self.tbmemusage = self.utils.btn_background("tbmemusage", "media-memory")
+        self.tbcpusage = self.utils.btn_background(
+            "tbcpusage", "preferences-devices-cpu"
+        )
+        self.tbmemusage = self.utils.btn_background(
+            "tbmemusage", "media-memory-sd-symbolic"
+        )
         self.tbsinkinput = self.utils.btn_background(
             "tbsinkinput", "multimedia-volume-control-symbolic"
         )
@@ -337,7 +341,7 @@ class Panel(Adw.Application):
     def setup_panel_buttons(self):
         if self.default_panel:
             workspace_buttons = self.utils.CreateFromAppList(
-                self.workspace_list_config, "v", "RightBar"
+                self.workspace_list_config, "v", "RightBar", None, True
             )
             self.top_panel.set_content(self.top_panel_box_full)
             self.right_panel.set_content(workspace_buttons)
@@ -405,7 +409,7 @@ class Panel(Adw.Application):
         # Creating close and full screen buttons for the top bar
         self.cf_box = Gtk.Box()
         self.fullscreen_button = self.utils.CreateButton(
-            "gtk-fullscreen", "hyprctl dispatch fullscreen", "cf_button", None
+            "window-maximize-symbolic", "hyprctl dispatch fullscreen", "cf_button", None
         )
         self.close_button = self.utils.CreateButton(
             "close-symbolic", "hyprctl dispatch killactive", "cf_button", None

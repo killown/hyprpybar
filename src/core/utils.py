@@ -77,7 +77,9 @@ class Utils(Adw.Application):
             except Exception as e:
                 print(e)
 
-    def CreateFromAppList(self, config, orientation, class_style, callback=None):
+    def CreateFromAppList(
+        self, config, orientation, class_style, callback=None, use_label=False
+    ):
         # Map orientation to Gtk.Orientation
         if orientation == "h":
             orientation = Gtk.Orientation.HORIZONTAL
@@ -110,6 +112,7 @@ class Utils(Adw.Application):
                     class_style,
                     wclass,
                     initial_title,
+                    use_label,
                 )
 
                 # If a callback is provided, create a gesture for the button
@@ -297,13 +300,19 @@ class Utils(Adw.Application):
         self.CreateGesture(box, 1, lambda *_: self.run_app(cmd, wclass, initial_title))
         return box
 
-    def CreateButton(self, icon_name, cmd, Class_Style, wclass, initial_title=None):
+    def CreateButton(
+        self, icon_name, cmd, Class_Style, wclass, initial_title=None, use_label=False
+    ):
         box = Gtk.Box(spacing=6)
         box.add_css_class(Class_Style)
         button = Adw.ButtonContent()
-        button.set_icon_name(icon_name)
+        if use_label:
+            button.set_label(icon_name)
+        else:
+            button.add_css_class("hvr-grow")
+            button.set_icon_name(icon_name)
+
         button.add_css_class("{}-buttons".format(Class_Style))
-        button.add_css_class("hvr-grow")
         if cmd == "NULL":
             button.set_sensitive(False)
             return button
