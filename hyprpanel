@@ -1315,6 +1315,11 @@ class Panel(Adw.Application):
 
     def update_title_and_icons(self, title, wm_class, initial_title):
         """Update title and icons."""
+        #some classes and initial titles has whitespaces which will lead to not found icons
+        if " " in initial_title:
+            initial_title = initial_title.split()[0]
+        if " " in wm_class:
+            wm_class = wm_class.split()[0]
 
         # Check if an icon exists for the wm_class
         icon_exist = self.icon_exist(wm_class)

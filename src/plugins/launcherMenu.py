@@ -86,7 +86,8 @@ class MenuLauncher(Adw.Application):
         # #TODO: create a function to not repeate this loop
         for n, i in enumerate(dockbar_apps):
             name = dockbar_names[n]
-            filename = i["desktop_file"]
+            filename = i["desktop_file"].strip()
+            print(filename)
             icon = i["icon"]
             if icon is None:
                 continue

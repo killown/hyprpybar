@@ -173,6 +173,13 @@ class Dockbar(Adw.Application):
             wm_class = i.wm_class.lower()
             address = i.address.lower()
             initial_title = i.initial_title.lower()
+            
+            #some classes and initial titles has whitespaces which will lead to not found icons
+            if " " in initial_title:
+                initial_title = initial_title.split()[0]
+            if " " in wm_class:
+                wm_class = wm_class.split()[0]
+                
             title = i.title
             pid = i.pid
 
