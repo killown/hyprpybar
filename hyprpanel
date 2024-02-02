@@ -27,6 +27,9 @@ import sys
 import importlib
 import requests
 import random
+import socket
+import threading
+import time
 
 spam_loader = importlib.util.find_spec("hyprpy")
 found = spam_loader is not None
@@ -191,6 +194,8 @@ class Panel(Adw.Application):
         self.MenuClipboard.create_popover_menu_clipboard(self, app)
         self.MenuLauncher = MenuLauncher()
         self.MenuLauncher.create_menu_popover_launcher(self, app)
+        # self.start_sockets_server()
+        self.start_thread_hyprland()
 
     def do_activate(self):
         self.show_panels()
@@ -201,6 +206,37 @@ class Panel(Adw.Application):
     # string = "interface='org.freedesktop.Notifications',member='Notify', eavesdrop='true'"
     # bus.add_match_string(string)
     # bus.add_message_filter(self.notification_msg)
+
+    def hyprland_instance_watch(self, instance):
+        # instance.signal_active_workspace_changed.connect(self.workspace_changed)
+        instance.signal_active_window_changed.connect(self.hyprland_window_changed)
+
+    def hyprland_window_changed(self, sender, **kwargs):
+        # just to make sure this function will never fails
+        try:
+            instance = Hyprland()
+            active_window = instance.get_active_window()
+            title, _, _, wclass, initial_title = self.extract_widget_info(active_window)
+            # Modify title based on certain patterns
+            title = self.modify_title(title)
+
+            # Limit the title length
+            title = title[: self.window_title_topbar_length]
+
+            # Apply custom icon if available
+            custom_icon = self.apply_custom_icon(wclass)
+            if custom_icon:
+                wclass = custom_icon
+
+            # Update title and icon
+            self.update_title_and_icons(title, wclass, initial_title)
+        except Exception as e:
+            print(e)
+
+    def HyprlandWatch(self):
+        instance = Hyprland()
+        GLib.idle_add(self.hyprland_instance_watch, instance)
+        instance.watch()
 
     def monitor_width_height(self):
         # get monitor info and set the width, height for the panel
@@ -227,7 +263,7 @@ class Panel(Adw.Application):
     def setup_menus(self):
         for menu in self.menus.values():
             self.top_panel_box_systray.append(menu)
-            menu.add_css_class("systray")
+            # menu.add_css_class("systray")
             self.top_panel_box_systray.set_halign(Gtk.Align.END)
             self.top_panel_box_systray.set_hexpand(True)
 
@@ -287,7 +323,7 @@ class Panel(Adw.Application):
 
     def update_widget_with_timeout(self):
         GLib.timeout_add(200, self.update_widgets)
-        GLib.timeout_add(200, self.update_title_topbar)
+        # GLib.timeout_add(200, self.update_title_topbar)
         GLib.timeout_add(30000, self.mullvad_status)
         GLib.timeout_add(600000, self.clean_pid_store)
 
@@ -491,6 +527,11 @@ class Panel(Adw.Application):
             css_provider,
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
+
+    def start_thread_hyprland(self):
+        server_thread = threading.Thread(target=self.HyprlandWatch)
+        server_thread.daemon = True
+        server_thread.start()
 
     def setup_panels(self):
         self.top_panel_box_left.add_css_class("top_panel_box_left")
@@ -1140,22 +1181,19 @@ class Panel(Adw.Application):
 
         title, _, _, wclass, initial_title = self.extract_widget_info(active_window)
 
-        if self.window_title_from_topbar != title:
-            self.window_title_from_topbar = title
+        # Modify title based on certain patterns
+        title = self.modify_title(title)
 
-            # Modify title based on certain patterns
-            title = self.modify_title(title)
+        # Limit the title length
+        title = title[: self.window_title_topbar_length]
 
-            # Limit the title length
-            title = title[: self.window_title_topbar_length]
+        # Apply custom icon if available
+        custom_icon = self.apply_custom_icon(wclass)
+        if custom_icon:
+            wclass = custom_icon
 
-            # Apply custom icon if available
-            custom_icon = self.apply_custom_icon(wclass)
-            if custom_icon:
-                wclass = custom_icon
-
-            # Update title and icon
-            self.update_title_and_icons(title, wclass, initial_title)
+        # Update title and icon
+        self.update_title_and_icons(title, wclass, initial_title)
 
         return True
 

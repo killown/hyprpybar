@@ -6,6 +6,7 @@ import json
 import psutil
 from subprocess import Popen, call, check_output as out
 from collections import ChainMap
+import threading
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -48,8 +49,8 @@ class Dockbar(Adw.Application):
     # Start the Dockbar application
     def do_start(self):
         # Set up a timeout to periodically check process IDs
-        GLib.timeout_add(300, self.check_pids)
-
+        # GLib.timeout_add(300, self.check_pids)
+        self.start_thread_hyprland()
         # Populate self.stored_windows during panel start
         instance = Hyprland()
         self.stored_windows = [i.pid for i in instance.get_windows() if i.pid != -1]
@@ -126,6 +127,25 @@ class Dockbar(Adw.Application):
         else:
             # No change in windows, return False
             return False
+
+    def hyprland_instance_watch(self, instance):
+        instance.signal_window_created.connect(self.hyprland_window_changed)
+        instance.signal_window_destroyed.connect(self.hyprland_window_changed)
+        instance.signal_active_window_changed.connect(self.hyprland_window_changed)
+
+    def hyprland_window_changed(self, sender, **kwargs):
+        self.taskbar_remove()
+        self.Taskbar("h", "taskbar")
+
+    def HyprlandWatch(self):
+        instance = Hyprland()
+        GLib.idle_add(self.hyprland_instance_watch, instance)
+        instance.watch()
+
+    def start_thread_hyprland(self):
+        server_thread = threading.Thread(target=self.HyprlandWatch)
+        server_thread.daemon = True
+        server_thread.start()
 
     def Taskbar(self, orientation, class_style, update_button=False, callback=None):
         # Create an instance of Hyprland to access window information

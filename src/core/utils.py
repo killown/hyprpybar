@@ -129,7 +129,6 @@ class Utils(Adw.Application):
                 or deskfile.startswith("msedge")
                 or deskfile.startswith("FFPWA-")
             ):
-                print(deskfile)
                 pass
             else:
                 continue
@@ -148,7 +147,6 @@ class Utils(Adw.Application):
             i.get_id().lower() for i in all_apps if wm_class in i.get_id().lower()
         ]
         if desktop_files:
-            print(desktop_files)
             return desktop_files[0]
         else:
             return None
@@ -264,6 +262,8 @@ class Utils(Adw.Application):
         box = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, spacing=6)
         box.add_css_class(Class_Style)
         image = None
+        if icon is None:
+            icon = ""
         # panel.toml has filters for missing icons
         try:
             icon = self.panel_cfg["change_icon_title"][icon]
