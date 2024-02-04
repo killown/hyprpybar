@@ -1,7 +1,6 @@
 ## Hyprpanel
 
-![screenshot](https://github.com/killown/hyprpybar/assets/24453/362fb603-0059-45b8-9f0f-c77555b5b3ad)
-
+![screenshot](https://github.com/killown/hyprpybar/assets/24453/9e498cd3-db04-40bd-9bbb-d12ca72e745f)
 
 ![screenshot](https://github.com/killown/hyprpybar/assets/24453/b7d6ae14-bdc8-4901-8b12-4686fdfa293c)
 
