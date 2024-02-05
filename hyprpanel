@@ -18,7 +18,7 @@ gi.require_version("Adw", "1")
 
 from src.core.create_panel import CreatePanel
 import asyncio
-from gi.repository import Gtk, Adw, GLib, Gio, Gdk
+from gi.repository import Gtk, Adw, GLib, Gio, Gdk, GObject
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
 import datetime
@@ -57,6 +57,58 @@ from src.core.dashboard import Dashboard
 from gi.repository import Gtk4LayerShell as LayerShell
 
 
+class InvalidGioTaskError(Exception):
+    pass
+
+
+class AlreadyRunningError(Exception):
+    pass
+
+
+class BackgroundTask(GObject.Object):
+    __gtype_name__ = "BackgroundTask"
+
+    def __init__(self, function, finish_callback, **kwargs):
+        super().__init__(**kwargs)
+
+        self.function = function
+        self.finish_callback = finish_callback
+        self._current = None
+
+    def start(self):
+        if self._current:
+            AlreadyRunningError("Task is already running")
+
+        finish_callback = lambda self, task, nothing: self.finish_callback()
+
+        task = Gio.Task.new(self, None, finish_callback, None)
+        task.run_in_thread(self._thread_cb)
+
+        self._current = task
+
+    @staticmethod
+    def _thread_cb(task, self, task_data, cancellable):
+        try:
+            retval = self.function()
+            task.return_value(retval)
+        except Exception as e:
+            task.return_value(e)
+
+    def finish(self):
+        task = self._current
+        self._current = None
+
+        if not Gio.Task.is_valid(task, self):
+            raise InvalidGioTaskError()
+
+        value = task.propagate_value().value
+
+        if isinstance(value, Exception):
+            raise value
+
+        return value
+
+
 class Panel(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -92,6 +144,7 @@ class Panel(Adw.Application):
         self.active_window_changed = None
         self.hyprpanel_started_now = True
         self.window_title_from_topbar = None
+        self.hyprinstance = Hyprland()
 
         with open(self.topbar_config) as topbar_config:
             config = toml.load(topbar_config)
@@ -207,15 +260,16 @@ class Panel(Adw.Application):
     # bus.add_match_string(string)
     # bus.add_message_filter(self.notification_msg)
 
-    def hyprland_instance_watch(self, instance):
+    def hyprland_instance_watch(self):
         # instance.signal_active_workspace_changed.connect(self.workspace_changed)
-        instance.signal_active_window_changed.connect(self.hyprland_window_changed)
+        self.hyprinstance.signal_active_window_changed.connect(
+            self.hyprland_window_changed
+        )
 
     def hyprland_window_changed(self, sender, **kwargs):
         # just to make sure this function will never fails
         try:
-            instance = Hyprland()
-            active_window = instance.get_active_window()
+            active_window = self.hyprinstance.get_active_window()
             title, _, _, wclass, initial_title = self.extract_widget_info(active_window)
             # Modify title based on certain patterns
             title = self.modify_title(title)
@@ -232,11 +286,11 @@ class Panel(Adw.Application):
             self.update_title_and_icons(title, wclass, initial_title)
         except Exception as e:
             print(e)
+        return True
 
     def HyprlandWatch(self):
-        instance = Hyprland()
-        GLib.idle_add(self.hyprland_instance_watch, instance)
-        instance.watch()
+        GLib.idle_add(self.hyprland_instance_watch)
+        self.hyprinstance.watch()
 
     def monitor_width_height(self):
         # get monitor info and set the width, height for the panel
@@ -532,10 +586,19 @@ class Panel(Adw.Application):
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
 
+    def on_hyprwatch_finished(task):
+        try:
+            retval = task.finish()
+            print(retval)
+        except Exception as err:
+            print("Unhandled exception occured!", err.message)
+
     def start_thread_hyprland(self):
-        server_thread = threading.Thread(target=self.HyprlandWatch)
-        server_thread.daemon = True
-        server_thread.start()
+        # server_thread = threading.Thread(target=self.HyprlandWatch)
+        # server_thread.daemon = True
+        # server_thread.start()
+        hyprwatch = BackgroundTask(self.HyprlandWatch, self.on_hyprwatch_finished)
+        hyprwatch.start()
 
     def setup_panels(self):
         self.top_panel_box_left.add_css_class("top_panel_box_left")
@@ -1184,6 +1247,10 @@ class Panel(Adw.Application):
             return True
 
         title, _, _, wclass, initial_title = self.extract_widget_info(active_window)
+        # if self.window_title_from_topbar == title:
+        #    return True
+
+        self.window_title_from_topbar = title
 
         # Modify title based on certain patterns
         title = self.modify_title(title)
@@ -1315,7 +1382,7 @@ class Panel(Adw.Application):
 
     def update_title_and_icons(self, title, wm_class, initial_title):
         """Update title and icons."""
-        #some classes and initial titles has whitespaces which will lead to not found icons
+        # some classes and initial titles has whitespaces which will lead to not found icons
         if " " in initial_title:
             initial_title = initial_title.split()[0]
         if " " in wm_class:
@@ -1350,7 +1417,7 @@ class Panel(Adw.Application):
         if label:
             icon_exist = self.icon_exist(label)
             if icon_exist:
-                self.window_title.set_icon_name(label)
+                self.window_title.set_icon_name(icon_exist[0])
                 self.tbclass.set_icon_name(label)
 
     def update_widget_labels(

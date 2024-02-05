@@ -89,8 +89,13 @@ class PopoverWallpaper(Adw.Application):
         return self.popover_wallpaper
 
     def open_wallpaper(self, x):
-        cmd = "swww img {0}".format(x.get_child().MYTEXT).split()
+        import shutil
+
+        img = x.get_child().MYTEXT
+        cmd = "swww img {0}".format(img).split()
         Popen(cmd)
+        default_wallpaper_path = os.path.join(self.home, ".config/hypr/fav.jpg")
+        shutil.copyfile(img, default_wallpaper_path)
         self.popover_wallpaper.popdown()
 
     def on_show_searchbar_action_actived(self, action, parameter):
