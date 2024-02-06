@@ -201,9 +201,9 @@ class Dockbar(Adw.Application):
         )
 
     def hyprland_window_changed(self, sender, **kwargs):
-        GLib.idle_add(self.taskbar_remove)
-        GLib.idle_add(self.update_active_window_shell)
-        GLib.idle_add(self.Taskbar, "h", "taskbar")
+        self.taskbar_remove()
+        self.update_active_window_shell()
+        self.Taskbar("h", "taskbar")
 
     def HyprlandWatch(self):
         GLib.idle_add(self.hyprland_instance_watch)
