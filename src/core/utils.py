@@ -30,6 +30,9 @@ class Utils(Adw.Application):
         self.psutil_store = {}
         self.panel_cfg = self.load_topbar_config()
         self.icon_theme_list = Gtk.IconTheme().get_icon_names()
+        self.icon_names = [
+            i.get_id().split(".")[0].lower() for i in Gio.AppInfo.get_all()
+        ]
 
     def run_app(self, cmd, wclass=None, initial_title=None, cmd_mode=True):
         if wclass:
@@ -144,6 +147,31 @@ class Utils(Adw.Application):
                 return deskfile
         return None
 
+    def update_icon(self, wm_class, initial_title, title):
+        # Set window icon based on icon_exist
+        if " " in initial_title:
+            initial_title = initial_title.replace(" ", "")
+        icon_exist = self.icon_exist(wm_class)
+        if wm_class in icon_exist:
+            return wm_class
+        if wm_class not in icon_exist:
+            # If no icon for wm_class, check if there's an icon for the initial_title
+            icon_exist = self.icon_exist(initial_title)
+            if initial_title in icon_exist:
+                return initial_title
+        # If still no icon, search for desktop files based on wmclass and initial_title
+        desk = self.search_desktop(wm_class)
+        desk_local = self.search_local_desktop(initial_title)
+        if wm_class not in icon_exist and initial_title not in icon_exist:
+            if desk_local and "-Default" in desk_local:
+                icon = desk_local.split(".desktop")[0]
+                return icon
+            if desk_local is None:
+                if desk:
+                    icon = desk.split(".desktop")[0]
+                    return icon
+        return None
+
     def search_desktop(self, wm_class):
         all_apps = Gio.AppInfo.get_all()
         desktop_files = [
@@ -153,6 +181,11 @@ class Utils(Adw.Application):
             return desktop_files[0]
         else:
             return None
+
+    def icon_exist(self, argument):
+        if argument is not None:
+            exist = [name for name in self.icon_names if argument.lower() in name]
+            return exist
 
     def create_taskbar_launcher(
         self,
@@ -184,50 +217,16 @@ class Utils(Adw.Application):
                     address
                 )
 
-        icon = wmclass
-        all_apps = Gio.AppInfo.get_all()
-
-        # Search for desktop files based on wmclass and initial_title
-        desk = self.search_desktop(wmclass)
-        desk_local = self.search_local_desktop(initial_title)
-
-        # Load dockbar configuration from a file
-        with open(self.dockbar_config, "r") as f:
-            config = toml.load(f)
-        try:
-            # Try to get icon information from the configuration file
-            icon = config[wmclass.lower()]["icon"]
-        except KeyError:
-            pass
+        icon = self.update_icon(wmclass, initial_title, title)
 
         # If cmd is still None, construct command based on desktop file information
+        desk = self.search_desktop(wmclass)
+        desk_local = self.search_local_desktop(initial_title)
         if cmd is None:
             if wmclass not in desk_local:
                 cmd = "gtk-launch {}".format(desk)
             else:
                 cmd = "gtk-launch {}".format(desk_local)
-
-        if desk_local:
-            desk_local = desk_local.split(".desktop")[0]
-        if desk_local is None:
-            if desk:
-                desk = desk.split(".desktop")[0]
-
-        # Iterate through all available applications to get the icon
-        for i in all_apps:
-            id = i.get_id().lower()
-            name = i.get_name().lower()
-
-            if desk_local is not None and "-Default" in desk_local:
-                icon = desk_local
-                break
-            if desk:
-                if initial_title in name:
-                    icon = i.get_icon()
-                    break
-            else:
-                if wmclass in id:
-                    icon = i.get_icon()
 
         # Special case for "zsh" initial_title
         if initial_title == "zsh":
@@ -241,6 +240,33 @@ class Utils(Adw.Application):
                 pass
 
         initial_title = " ".join(i.capitalize() for i in initial_title.split())
+
+        # Load panel config and check if there is a custom icon set
+        with open(self.topbar_config, "r") as f:
+            config = toml.load(f)
+        try:
+            # Try to get icon information from the configuration file
+            icon = config["change_icon_title"][wmclass]
+        except KeyError:
+            pass
+
+        # Load dockbar configuration and set the icon from default if exist
+        with open(self.dockbar_config, "r") as f:
+            config = toml.load(f)
+        try:
+            # Try to get icon information from the configuration file
+            icon = config[wmclass.lower()]["icon"]
+        except KeyError:
+            pass
+
+        # Set additional label-based icons for specific initial_titles (zsh, fish)
+        label = title.split(" ")[0] if initial_title in ["zsh", "fish"] else None
+
+        if label:
+            icon_exist = self.icon_exist(label)
+            if icon_exist:
+                self.window_title.set_icon_name(icon_exist[0])
+                self.tbclass.set_icon_name(label)
 
         # Create a clickable image button and attach a gesture if callback is provided
         button = self.create_clicable_image(

@@ -132,7 +132,7 @@ class Panel(Adw.Application):
 
         # Load configurations
         self.panel_cfg = self.load_topbar_config()
-        self.icon_theme_list = Gtk.IconTheme().get_icon_names()
+        self.icon_names = [icon.lower() for icon in Gtk.IconTheme().get_icon_names()]
         self.active_window_changed = None
         self.notifications = []
         self.popover_bookmarks = None
@@ -261,7 +261,6 @@ class Panel(Adw.Application):
     # bus.add_message_filter(self.notification_msg)
 
     def hyprland_instance_watch(self):
-        # instance.signal_active_workspace_changed.connect(self.workspace_changed)
         self.hyprinstance.signal_active_window_changed.connect(
             self.hyprland_window_changed
         )
@@ -586,7 +585,7 @@ class Panel(Adw.Application):
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
 
-    def on_hyprwatch_finished(task):
+    def on_hyprwatch_finished(self, task):
         try:
             retval = task.finish()
             print(retval)
@@ -1035,6 +1034,7 @@ class Panel(Adw.Application):
         # lazy to not use wl-copy
         active_window = self.get_hyprland_active_window()
         self.utils.run_app("wl-copy {0}".format(active_window.pid))
+        self.utils.run_app("kitty --hold -- htop -p {0}".format(active_window.pid))
 
     def sink_input_info(self):
         pactl = "pactl list sink-inputs".split()
@@ -1377,8 +1377,36 @@ class Panel(Adw.Application):
 
     def icon_exist(self, argument):
         if argument is not None:
-            exist = [i for i in self.icon_theme_list if argument in i.lower()]
+            exist = [name for name in self.icon_names if argument.lower() in name]
             return exist
+
+    def update_icon(self, wm_class, initial_title, title):
+        # Set window icon based on icon_exist
+        if " " in initial_title:
+            initial_title = initial_title.replace(" ", "")
+        icon_exist = self.icon_exist(wm_class)
+        if wm_class in icon_exist:
+            self.window_title.set_icon_name(wm_class)
+        if wm_class not in icon_exist:
+            # If no icon for wm_class, check if there's an icon for the initial_title
+            icon_exist = self.icon_exist(initial_title)
+            if initial_title in icon_exist:
+                self.window_title.set_icon_name(initial_title)
+        # If still no icon, search for desktop files based on wmclass and initial_title
+        if wm_class not in icon_exist and initial_title not in icon_exist:
+            desk_local = self.utils.search_local_desktop(initial_title)
+            if desk_local and "-Default" in desk_local:
+                icon = desk_local.split(".desktop")[0]
+                self.window_title.set_icon_name(icon)
+
+        # Set additional label-based icons for specific initial_titles (zsh, fish)
+        label = title.split(" ")[0] if initial_title in ["zsh", "fish"] else None
+
+        if label:
+            icon_exist = self.icon_exist(label)
+            if icon_exist:
+                self.window_title.set_icon_name(label)
+                self.tbclass.set_icon_name(label)
 
     def update_title_and_icons(self, title, wm_class, initial_title):
         """Update title and icons."""
@@ -1389,36 +1417,11 @@ class Panel(Adw.Application):
             wm_class = wm_class.split()[0]
 
         # Check if an icon exists for the wm_class
-        icon_exist = self.icon_exist(wm_class)
         self.tbclass.set_icon_name(wm_class)
-
-        # Set window icon based on icon_exist
-        if icon_exist:
-            self.window_title.set_icon_name(icon_exist[0])
-        if not icon_exist:
-            # If no icon for wm_class, check if there's an icon for the initial_title
-            icon_exist = self.icon_exist(initial_title.lower())
-            if icon_exist:
-                self.window_title.set_icon_name(icon_exist[0])
-
-        # If still no icon, search for desktop files based on wmclass and initial_title
-        if not icon_exist:
-            desk_local = self.utils.search_local_desktop(initial_title.lower())
-            if desk_local and "-Default" in desk_local:
-                icon = desk_local.split(".desktop")[0]
-                self.window_title.set_icon_name(icon)
+        self.update_icon(wm_class, initial_title, title)
 
         # Set window label
         self.window_title.set_label(title)
-
-        # Set additional label-based icons for specific initial_titles (zsh, fish)
-        label = title.split(" ")[0] if initial_title in ["zsh", "fish"] else None
-
-        if label:
-            icon_exist = self.icon_exist(label)
-            if icon_exist:
-                self.window_title.set_icon_name(icon_exist[0])
-                self.tbclass.set_icon_name(label)
 
     def update_widget_labels(
         self, workspace_id, pid, wclass, cpu_usage, mem_usage, exe, window_changed

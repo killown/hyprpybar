@@ -10,11 +10,63 @@ import threading
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, GLib, Gio, Gdk
+from gi.repository import Gtk, Adw, GLib, Gio, GObject
 from ..core.create_panel import *
 from ..core.utils import Utils
 from hyprpy import Hyprland
 import numpy as np
+
+
+class InvalidGioTaskError(Exception):
+    pass
+
+
+class AlreadyRunningError(Exception):
+    pass
+
+
+class BackgroundTaskbar(GObject.Object):
+    __gtype_name__ = "BackgroundTaskbar"
+
+    def __init__(self, function, finish_callback, **kwargs):
+        super().__init__(**kwargs)
+
+        self.function = function
+        self.finish_callback = finish_callback
+        self._current = None
+
+    def start(self):
+        if self._current:
+            AlreadyRunningError("Task is already running")
+
+        finish_callback = lambda self, task, nothing: self.finish_callback()
+
+        task = Gio.Task.new(self, None, finish_callback, None)
+        task.run_in_thread(self._thread_cb)
+
+        self._current = task
+
+    @staticmethod
+    def _thread_cb(task, self, task_data, cancellable):
+        try:
+            retval = self.function()
+            task.return_value(retval)
+        except Exception as e:
+            task.return_value(e)
+
+    def finish(self):
+        task = self._current
+        self._current = None
+
+        if not Gio.Task.is_valid(task, self):
+            raise InvalidGioTaskError()
+
+        value = task.propagate_value().value
+
+        if isinstance(value, Exception):
+            raise value
+
+        return value
 
 
 class Dockbar(Adw.Application):
@@ -45,6 +97,7 @@ class Dockbar(Adw.Application):
         self.buttons_address = {}
         self.has_taskbar_started = False
         self.stored_windows = []
+        self.hyprinstance = Hyprland()
 
     # Start the Dockbar application
     def do_start(self):
@@ -128,24 +181,33 @@ class Dockbar(Adw.Application):
             # No change in windows, return False
             return False
 
-    def hyprland_instance_watch(self, instance):
-        instance.signal_window_created.connect(self.hyprland_window_changed)
-        instance.signal_window_destroyed.connect(self.hyprland_window_changed)
-        instance.signal_active_window_changed.connect(self.hyprland_window_changed)
-
-    def hyprland_window_changed(self, sender, **kwargs):
-        self.taskbar_remove()
-        self.Taskbar("h", "taskbar")
-
-    def HyprlandWatch(self):
-        instance = Hyprland()
-        GLib.idle_add(self.hyprland_instance_watch, instance)
-        instance.watch()
+    def on_hyprwatch_finished(self, task):
+        try:
+            retval = task.finish()
+            print(retval)
+        except Exception as err:
+            print("Unhandled exception occured!", err.message)
 
     def start_thread_hyprland(self):
-        server_thread = threading.Thread(target=self.HyprlandWatch)
-        server_thread.daemon = True
-        server_thread.start()
+        # server_thread = threading.Thread(target=self.HyprlandWatch)
+        # server_thread.daemon = True
+        # server_thread.start()
+        hyprwatch = BackgroundTaskbar(self.HyprlandWatch, self.on_hyprwatch_finished)
+        hyprwatch.start()
+
+    def hyprland_instance_watch(self):
+        self.hyprinstance.signal_active_window_changed.connect(
+            self.hyprland_window_changed
+        )
+
+    def hyprland_window_changed(self, sender, **kwargs):
+        GLib.idle_add(self.taskbar_remove)
+        GLib.idle_add(self.update_active_window_shell)
+        GLib.idle_add(self.Taskbar, "h", "taskbar")
+
+    def HyprlandWatch(self):
+        GLib.idle_add(self.hyprland_instance_watch)
+        self.hyprinstance.watch()
 
     def Taskbar(self, orientation, class_style, update_button=False, callback=None):
         # Create an instance of Hyprland to access window information
@@ -155,7 +217,7 @@ class Dockbar(Adw.Application):
         all_windows = [
             i
             for i in instance.get_windows()
-            if i.wm_class and not i.wm_class in self.taskbar_list
+            if i.wm_class and i.wm_class not in self.taskbar_list
         ]
 
         # If no new windows, exit the function
@@ -173,13 +235,13 @@ class Dockbar(Adw.Application):
             wm_class = i.wm_class.lower()
             address = i.address.lower()
             initial_title = i.initial_title.lower()
-            
-            #some classes and initial titles has whitespaces which will lead to not found icons
+
+            # some classes and initial titles has whitespaces which will lead to not found icons
             if " " in initial_title:
                 initial_title = initial_title.split()[0]
             if " " in wm_class:
                 wm_class = wm_class.split()[0]
-                
+
             title = i.title
             pid = i.pid
 
