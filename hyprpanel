@@ -145,6 +145,7 @@ class Panel(Adw.Application):
         self.hyprpanel_started_now = True
         self.window_title_from_topbar = None
         self.hyprinstance = Hyprland()
+        self.active_window = None
 
         with open(self.topbar_config) as topbar_config:
             config = toml.load(topbar_config)
@@ -275,16 +276,19 @@ class Panel(Adw.Application):
     def hyprland_window_changed(self, sender, **kwargs):
         # just to make sure this function will never fails
         try:
-            active_window = self.hyprinstance.get_active_window()
-            title, _, _, wclass, initial_title = self.extract_widget_info(active_window)
-            # Modify title based on certain patterns
-            title = self.modify_title(title)
-
-            # Limit the title length
-            title = title[: self.window_title_topbar_length]
+            self.active_window = self.hyprinstance.get_active_window()
+            title, workspace_id, pid, wclass, initial_title = self.extract_widget_info(
+                self.active_window
+            )
+            # do not update widgets in full screen mode, for better cpu usage
+            if self.active_window.is_fullscreen:
+                if self.active_window.fullscreen_mode == 0:
+                    return True
 
             # Update title and icon
-            GLib.idle_add(self.update_title_and_icons, title, wclass, initial_title)
+            GLib.idle_add(
+                self.update_widgets, title, wclass, initial_title, pid, workspace_id
+            )
         except Exception as e:
             print(e)
         return True
@@ -381,7 +385,7 @@ class Panel(Adw.Application):
         self.top_panel_background.set_content(self.tbbox)
 
     def update_widget_with_timeout(self):
-        GLib.timeout_add(200, self.update_widgets)
+        # GLib.timeout_add(200, self.update_widgets)
         # GLib.timeout_add(200, self.update_title_topbar)
         GLib.timeout_add(30000, self.mullvad_status)
         GLib.timeout_add(600000, self.clean_pid_store)
@@ -1293,48 +1297,32 @@ class Panel(Adw.Application):
             # No change in the active window
             return False
 
-    def update_widgets(self):
+    def update_widgets(self, title, wm_class, initial_title, pid, workspace_id):
         """
         Update widgets based on the currently active window.
 
         Returns:
             bool: True if the update was successful, False otherwise.
         """
+        # Modify title based on certain patterns
+        title = self.modify_title(title)
+        # Limit the title length
+        title = title[: self.window_title_topbar_length]
 
-        # Skip update if in fullscreen or in the "OVERVIEW" workspace
-        instance = Hyprland()
-        if not instance.get_workspace_by_name("OVERVIEW"):
-            return True
+        self.update_title_and_icons(title, wm_class, initial_title)
 
-        window_changed = self.has_active_window_changed()
-
-        # Extract window information
-        active_window = self.get_hyprland_active_window()
-        title, workspace_id, pid, wclass, initial_title = self.extract_widget_info(
-            active_window
-        )
-
-        # Apply custom icon if available
-        custom_icon = self.apply_custom_icon(wclass.lower())
-        if custom_icon:
-            wclass = custom_icon
+        # do not update widgets in full screen mode, for better cpu usage
+        if self.active_window.is_fullscreen:
+            if self.active_window.fullscreen_mode == 1:
+                return False
 
         # Fetch and format process information
         mem_usage, exe, cpu_usage = self.fetch_process_info(pid)
 
-        # Modify title based on certain patterns
-        title = self.modify_title(title)
-
         # Update widget labels and icons
         self.update_widget_labels(
-            workspace_id, pid, wclass, cpu_usage, mem_usage, exe, window_changed
+            workspace_id, pid, wm_class, cpu_usage, mem_usage, exe
         )
-
-        # Update title and icon
-        if window_changed:
-            self.update_title_and_icons(title, wclass, initial_title)
-
-        return True
 
     def extract_widget_info(self, active_window):
         """Extract and return widget-related information."""
@@ -1444,16 +1432,15 @@ class Panel(Adw.Application):
         self.window_title.set_label(title)
 
     def update_widget_labels(
-        self, workspace_id, pid, wclass, cpu_usage, mem_usage, exe, window_changed
+        self, workspace_id, pid, wclass, cpu_usage, mem_usage, exe
     ):
         """Update widget labels."""
 
         # Only update labels related to window details if the window has changed
-        if window_changed:
-            self.tbpid.set_label("PID: {0}".format(pid))
-            self.tbclass.set_label("{0}".format(wclass))
-            self.tbexe.set_label("Exe: {0}".format(exe))
-            self.tbdiskusage.set_label("Disk: {0}MB".format(self.disk_usage_by_pid()))
+        self.tbpid.set_label("PID: {0}".format(pid))
+        self.tbclass.set_label("{0}".format(wclass))
+        self.tbexe.set_label("Exe: {0}".format(exe))
+        self.tbdiskusage.set_label("Disk: {0}MB".format(self.disk_usage_by_pid()))
 
         # Update labels for general information
         self.tbworkspace.set_label("W: {0}".format(workspace_id))
