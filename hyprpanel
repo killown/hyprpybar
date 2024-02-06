@@ -280,7 +280,7 @@ class Panel(Adw.Application):
             title, workspace_id, pid, wclass, initial_title = self.extract_widget_info(
                 self.active_window
             )
-            # do not update widgets in full screen mode, for better cpu usage
+            # do not update any widget in full screen mode 0, for gaming performance
             if self.active_window.is_fullscreen:
                 if self.active_window.fullscreen_mode == 0:
                     return True
