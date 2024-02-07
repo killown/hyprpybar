@@ -1,6 +1,6 @@
 ## Hyprpanel
 
-#### there is a compiled version in C
+## There is a compiled version in C
 
 ![screenshot](https://github.com/killown/hyprpybar/assets/24453/ad87cdc6-0634-4af5-84f0-b24ad45cf003)
 
