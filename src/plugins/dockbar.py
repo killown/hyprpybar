@@ -98,6 +98,7 @@ class Dockbar(Adw.Application):
         self.has_taskbar_started = False
         self.stored_windows = []
         self.hyprinstance = Hyprland()
+        self.window_created_now = None
 
     # Start the Dockbar application
     def do_start(self):
@@ -181,29 +182,40 @@ class Dockbar(Adw.Application):
             # No change in windows, return False
             return False
 
-    def on_hyprwatch_finished(self, task):
+    def on_hyprwatch_finished(self):
+        # non working code
         try:
-            retval = task.finish()
+            retval = self.hyprwatch_task.finish()
             print(retval)
         except Exception as err:
-            print("Unhandled exception occured!", err.message)
+            print(err)
 
     def start_thread_hyprland(self):
-        # server_thread = threading.Thread(target=self.HyprlandWatch)
-        # server_thread.daemon = True
-        # server_thread.start()
-        hyprwatch = BackgroundTaskbar(self.HyprlandWatch, self.on_hyprwatch_finished)
-        hyprwatch.start()
+        self.hyprwatch_task = BackgroundTaskbar(
+            self.HyprlandWatch, lambda: self.on_hyprwatch_finished
+        )
+        self.hyprwatch_task.start()
 
     def hyprland_instance_watch(self):
+        self.hyprinstance.signal_window_destroyed.connect(
+            self.hyprland_window_destroyed
+        )
+
+        self.hyprinstance.signal_window_created.connect(self.hyprland_window_created)
+
         self.hyprinstance.signal_active_window_changed.connect(
             self.hyprland_window_changed
         )
 
     def hyprland_window_changed(self, sender, **kwargs):
-        self.taskbar_remove()
-        self.update_active_window_shell()
+        if not len(self.hyprinstance.get_windows()) == 0:
+            self.update_active_window_shell()
+
+    def hyprland_window_created(self, sender, **kwargs):
         self.Taskbar("h", "taskbar")
+
+    def hyprland_window_destroyed(self, sender, **kwargs):
+        self.taskbar_remove()
 
     def HyprlandWatch(self):
         GLib.idle_add(self.hyprland_instance_watch)
@@ -211,7 +223,7 @@ class Dockbar(Adw.Application):
 
     def Taskbar(self, orientation, class_style, update_button=False, callback=None):
         # Create an instance of Hyprland to access window information
-        instance = Hyprland()
+        instance = self.hyprinstance
 
         # Filter windows to exclude those already in the taskbar
         all_windows = [
@@ -221,7 +233,7 @@ class Dockbar(Adw.Application):
         ]
 
         # If no new windows, exit the function
-        if not all_windows:
+        if not all_windows or all_windows == []:
             return True
 
         # Load configuration from dockbar_config file
@@ -261,7 +273,7 @@ class Dockbar(Adw.Application):
             button = self.utils.create_taskbar_launcher(
                 wm_class, address, title, initial_title, orientation, class_style
             )
-
+            print(button.get_name())
             # Append the button to the taskbar
             self.taskbar.append(button)
 
@@ -363,7 +375,7 @@ class Dockbar(Adw.Application):
 
     def taskbar_remove(self):
         # Create an instance of Hyprland
-        instance = Hyprland()
+        instance = self.hyprinstance
 
         # Get all active PIDs and addresses with wm_class
         all_pids = [i.pid for i in instance.get_windows() if i.wm_class]
