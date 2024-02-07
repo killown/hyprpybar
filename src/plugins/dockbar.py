@@ -208,6 +208,9 @@ class Dockbar(Adw.Application):
         )
 
     def hyprland_window_changed(self, sender, **kwargs):
+        # if no windows, window_created signal will conflict with window_changed
+        # the issue will be no new button will be appended to the taskbar
+        # necessary to check if the window list is empity
         if not len(self.hyprinstance.get_windows()) == 0:
             self.update_active_window_shell()
 
@@ -408,6 +411,7 @@ class Dockbar(Adw.Application):
         wclass = "".join(wclass)
         icon = initial_title
         cmd = initial_title
+        desktop_file = ""
 
         # Adjusting for special cases like zsh or bash
         if initial_title in ["zsh", "bash", "fish"]:
@@ -440,6 +444,7 @@ class Dockbar(Adw.Application):
                 if desktop_file_found:
                     cmd = "gtk-launch {0}".format(deskfile)
                     icon = deskfile.split(".desktop")[0]
+                    desktop_file = deskfile
                     break
         except Exception as e:
             print(e)
@@ -453,6 +458,8 @@ class Dockbar(Adw.Application):
                 "icon": icon,
                 "wclass": wclass,
                 "initial_title": initial_title,
+                "desktop_file": desktop_file,
+                "name": wclass,
             }
         }
         updated_data = ChainMap(new_data, config)

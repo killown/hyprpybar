@@ -23,5 +23,11 @@ if [ -d "gtk4-layer-shell" ]; then
     sudo meson setup build --wipe
     sudo ninja -C build install
     sudo rm -rf build
+    pip install nuitka
+    python -m nuitka hyprpanel
+    sudo cp hyprpanel.bin /opt/hyprpanel/
+    echo "\n\n\n\nUse /opt/hyprpanel/hyprpanel.bin if you want the compiled version of the hyprpanel"
+    echo "maybe faster but uses more memory"
+    
 fi
 
