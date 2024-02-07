@@ -1,7 +1,5 @@
 ## Hyprpanel
 
-## There is a compiled version in C if you use install script
-
 ![screenshot](https://github.com/killown/hyprpybar/assets/24453/ad87cdc6-0634-4af5-84f0-b24ad45cf003)
 
 ![screenshot](https://github.com/killown/hyprpybar/assets/24453/b7d6ae14-bdc8-4901-8b12-4686fdfa293c)
@@ -13,6 +11,8 @@
 The core of this panel lies in leveraging a shell overview, reminiscent of GNOME, to elegantly showcase all windows, dock bars, and more. Its primary goal is to optimize CPU usage exclusively during non-overview mode. The panel actively monitors command output, title changes, and widgets only when the overview is active in the background. This means that no unnecessary checks will occur, ensuring that CPU usage remains as low as possible. As a result, this panel is specifically designed to complement the functionalities of the [hyprshell](https://github.com/killown/hyprshell) plugin.
 
 ### How to Install
+
+## There is a compiled version in C if you use install script
 
 ```
 git clone https://github.com/killown/hyprpybar
