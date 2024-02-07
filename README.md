@@ -19,6 +19,9 @@ sh install
 mkdir ~/.config/hyprpanel; cp config/* ~/.config/hyprpanel
 ```
 
+if you prefer the compiled version, just use /opt/hyprpanel/hyprpanel.bin
+
+
 [](https://www.youtube.com/watch?v=UYnr8RLHP7c "Youtube Video")
 
 The info panel is intended to be used with hyprshell plugin
@@ -68,6 +71,9 @@ cmd = "command"
 name = "Menu Label"
 submenu = "submenu_name"
 ```
+
+### Compiled version
+You can choose whether to use Python or the C version compiled using Nuitka.
 
 ## License
 
