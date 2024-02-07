@@ -1,5 +1,7 @@
 ## Hyprpanel
 
+#### For those who think Python is slow and won't understand, no matter what you explain, there is a compiled version in C.
+
 ![screenshot](https://github.com/killown/hyprpybar/assets/24453/ad87cdc6-0634-4af5-84f0-b24ad45cf003)
 
 ![screenshot](https://github.com/killown/hyprpybar/assets/24453/b7d6ae14-bdc8-4901-8b12-4686fdfa293c)
@@ -19,7 +21,7 @@ sh install
 mkdir ~/.config/hyprpanel; cp config/* ~/.config/hyprpanel
 ```
 
-#### if you prefer the compiled version, just use /opt/hyprpanel/hyprpanel.bin
+#### compiled version /opt/hyprpanel/hyprpanel.bin
 
 
 [](https://www.youtube.com/watch?v=UYnr8RLHP7c "Youtube Video")
