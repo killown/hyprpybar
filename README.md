@@ -19,12 +19,10 @@ sh install
 mkdir ~/.config/hyprpanel; cp config/* ~/.config/hyprpanel
 ```
 
-if you prefer the compiled version, just use /opt/hyprpanel/hyprpanel.bin
+#### if you prefer the compiled version, just use /opt/hyprpanel/hyprpanel.bin
 
 
 [](https://www.youtube.com/watch?v=UYnr8RLHP7c "Youtube Video")
-
-The info panel is intended to be used with hyprshell plugin
 
 ### Current features
 
